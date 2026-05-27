@@ -11,7 +11,7 @@ export type Contractor = {
 };
 
 export const contractors: Contractor[] = [
-    { id: "1", name: "Chidi Okafor", role: "Senior Developer", country: "Nigeria", flag: "🇳🇬", currency: "NGN", wallet: "0x71C7656EC7ab88b098defB751B7401B5f6d8976F", monthlyAmount: 1000, avatar: ["#34e2b0", "#1a9e74"] },
+    { id: "1", name: "Chidi Okafor", role: "Senior Developer", country: "Nigeria", flag: "🇳🇬", currency: "NGN", wallet: "0x3BAB9919fbE79ab05B817c26544ec811D724B5Ae", monthlyAmount: 1000, avatar: ["#34e2b0", "#1a9e74"] },
     { id: "2", name: "Sofia Ramírez", role: "Product Designer", country: "Argentina", flag: "🇦🇷", currency: "ARS", wallet: "0x3A1b6C9eF2D4a8B7c5E0f1A2b3C4d5E6F7081920", monthlyAmount: 1200, avatar: ["#7cc4ff", "#3b82f6"] },
     { id: "3", name: "Liza Santos", role: "Content Writer", country: "Philippines", flag: "🇵🇭", currency: "PHP", wallet: "0x9F8e7D6c5B4a39281706f5E4d3C2b1A09f8e7D6c", monthlyAmount: 800, avatar: ["#f5b14c", "#e8893b"] },
     { id: "4", name: "Arjun Mehta", role: "Backend Engineer", country: "India", flag: "🇮🇳", currency: "INR", wallet: "0x2b3C4d5E6f70819203A1b6C9eF2D4a8B7c5E0f1A", monthlyAmount: 1500, avatar: ["#c4a6ff", "#8b5cf6"] },
