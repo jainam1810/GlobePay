@@ -1,31 +1,37 @@
+"use client";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { LayoutDashboard, Send, Users, FileText, Database, Download } from "lucide-react";
 import ConnectButton from "@/components/connect-button";
 import WalletCard from "@/components/wallet-card";
 
 const nav = [
-    { label: "Dashboard", icon: LayoutDashboard, active: false },
-    { label: "Payroll", icon: Send, active: true },
-    { label: "Contractors", icon: Users, active: false },
-    { label: "Invoices", icon: FileText, active: false },
-    { label: "Records", icon: Database, active: false },
-    { label: "Export", icon: Download, active: false },
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/", label: "Payroll", icon: Send },
+    { href: "/contractors", label: "Contractors", icon: Users },
+    { href: "/invoices", label: "Invoices", icon: FileText },
+    { href: "/records", label: "Records", icon: Database },
+    { href: "/export", label: "Export", icon: Download },
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
+    const pathname = usePathname();
+    const isActive = (href: string) => href === "/" ? pathname === "/" : pathname.startsWith(href);
+
     return (
-        <div className="relative z-1 flex min-h-screen">
+        <div className="relative z-[1] flex min-h-screen">
             <aside className="hidden md:flex w-[252px] shrink-0 flex-col justify-between border-r border-[var(--border)] px-4 py-6">
                 <div>
-                    <div className="flex items-center gap-2.5 px-2 mb-9">
+                    <Link href="/" className="flex items-center gap-2.5 px-2 mb-9">
                         <div className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--accent)] text-[#04130d] font-display font-bold text-lg shadow-[0_0_24px_var(--accent-glow)]">G</div>
                         <span className="font-display text-xl font-semibold tracking-tight">GlobePay</span>
-                    </div>
+                    </Link>
                     <nav className="flex flex-col gap-1">
                         {nav.map((item) => (
-                            <a key={item.label} className={`nav-item ${item.active ? "nav-item-active" : ""}`}>
+                            <Link key={item.label} href={item.href} className={`nav-item ${isActive(item.href) ? "nav-item-active" : ""}`}>
                                 <item.icon size={18} strokeWidth={1.8} />
                                 <span>{item.label}</span>
-                            </a>
+                            </Link>
                         ))}
                     </nav>
                 </div>

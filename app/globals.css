@@ -180,6 +180,21 @@ body::after {
     background: rgba(47, 230, 168, 0.08);
     color: var(--accent);
   }
+
+  .badge-testnet {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 0.18rem 0.5rem;
+    border-radius: 6px;
+    color: var(--accent);
+    background: rgba(47, 230, 168, 0.08);
+    border: 1px solid rgba(47, 230, 168, 0.22);
+  }
 }
 
 @keyframes fadeUp {
