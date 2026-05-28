@@ -76,6 +76,7 @@ export default function RecordsPage() {
                             <div className="card p-8 text-center text-sm text-[var(--text-dim)]">No records match &ldquo;{query}&rdquo;.</div>
                         )}
                     </div>
+                    <FxFootnote />
                 </>
             )}
         </div>
@@ -100,6 +101,7 @@ function EmptyState() {
 function RecordRow({ r }: { r: SavedRecord }) {
     const created = new Date(r.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
     const invDate = r.invoice_date ? new Date(r.invoice_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null;
+    const fxDate = r.fx_pinned_at ? new Date(r.fx_pinned_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" }) : null;
 
     return (
         <div className="card p-5 hover:bg-[var(--surface-2)] transition-colors">
@@ -112,6 +114,11 @@ function RecordRow({ r }: { r: SavedRecord }) {
                     <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium">{r.payee_name}</span>
                         {r.ai_confidence && <ConfidencePill level={r.ai_confidence} />}
+                        {r.fx_rate !== null && (
+                            <span className="text-[9px] font-mono uppercase tracking-wider border rounded px-1.5 py-0.5 text-[var(--accent)] bg-[rgba(47,230,168,0.06)] border-[rgba(47,230,168,0.2)]">
+                                FX pinned
+                            </span>
+                        )}
                     </div>
                     {r.description && <div className="text-sm text-[var(--text-dim)] mt-0.5 truncate">{r.description}</div>}
                     <div className="flex items-center gap-3 mt-2 text-[11px] font-mono text-[var(--text-faint)] flex-wrap">
@@ -129,6 +136,26 @@ function RecordRow({ r }: { r: SavedRecord }) {
                 <div className="text-right shrink-0 md:ml-4">
                     <div className="font-mono text-lg font-semibold">{r.amount.toLocaleString("en-US", { maximumFractionDigits: 2 })}</div>
                     <div className="text-[10px] text-[var(--text-faint)] uppercase font-mono">{r.currency}</div>
+                    {r.local_amount !== null && r.local_currency && (
+                        <>
+                            <div className="mt-1.5 text-[11px] font-mono text-[var(--text-dim)]">
+                                ≈ {r.local_amount.toLocaleString("en-US", { maximumFractionDigits: 0 })} {r.local_currency}
+                            </div>
+                            {fxDate && (
+                                <div className="text-[9px] font-mono text-[var(--text-faint)] uppercase tracking-wider mt-0.5">
+                                    pinned {fxDate}
+                                </div>
+                            )}
+                            {r.fx_rate !== null && (
+                                <div className="text-[9px] font-mono text-[var(--text-faint)] mt-0.5">
+                                    1 {r.currency} = {r.fx_rate.toLocaleString("en-US", { maximumFractionDigits: 4 })} {r.local_currency}
+                                </div>
+                            )}
+                            <div className="text-[9px] font-mono text-[var(--text-faint)] mt-0.5">
+                                src: fawazahmed0
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
         </div>
@@ -143,4 +170,19 @@ function ConfidencePill({ level }: { level: string }) {
     };
     const cls = map[level] || map.medium;
     return <span className={`text-[9px] font-mono uppercase tracking-wider border rounded px-1.5 py-0.5 ${cls}`}>{level}</span>;
+}
+
+function FxFootnote() {
+    return (
+        <div className="fade-up mt-8 p-4 rounded-xl border border-[var(--border)] bg-[var(--surface-2)]/40">
+            <div className="flex items-start gap-2.5 text-[11px] text-[var(--text-faint)] leading-relaxed">
+                <div className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-dim)] shrink-0 mt-0.5">Note</div>
+                <div>
+                    FX rates from <span className="font-mono">fawazahmed0/currency-api</span> (open daily mid-market feed via jsDelivr CDN).
+                    Records pin <span className="text-[var(--text-dim)]">1&nbsp;USDC&nbsp;=&nbsp;1&nbsp;USD </span>  at par -
+                    accurate to ~5 basis points; production tracks the company&rsquo;s actual USDC acquisition rate per top-up.
+                </div>
+            </div>
+        </div>
+    );
 }
