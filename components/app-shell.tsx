@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { LayoutDashboard, Send, Users, FileText, Database, Download } from "lucide-react";
 import ConnectButton from "@/components/connect-button";
 import WalletCard from "@/components/wallet-card";
+import CompanyBadge from "@/components/company-badge";
 
 const nav = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -43,6 +44,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     <div className="md:hidden font-display text-lg font-semibold">GlobePay</div>
                     <div className="flex-1" />
                     <div className="flex items-center gap-3">
+                        <CompanyBadge />
                         <span className="pill"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" /> Base Sepolia</span>
                         <ConnectButton />
                     </div>
