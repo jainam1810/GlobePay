@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Search, FileText, Database, AlertCircle, Sparkles, Loader2 } from "lucide-react";
+import { Search, FileText, Database, AlertCircle, Sparkles, Loader2, CheckCircle2 } from "lucide-react";
 import type { SavedRecord } from "@/lib/records";
+import { getTaxRule, validateTaxId } from "@/lib/tax-rules";
+import { flagFor } from "@/lib/contractor-types";
 
 export default function RecordsPage() {
     const [records, setRecords] = useState<SavedRecord[] | null>(null);
@@ -97,69 +99,119 @@ function EmptyState() {
         </div>
     );
 }
+const fmt = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 2 });
 
 function RecordRow({ r }: { r: SavedRecord }) {
     const created = new Date(r.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
     const invDate = r.invoice_date ? new Date(r.invoice_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null;
     const fxDate = r.fx_pinned_at ? new Date(r.fx_pinned_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" }) : null;
+    const rule = r.tax_country ? getTaxRule(r.tax_country) : null;
+    const idValid = r.contractor_tax_id && rule ? validateTaxId(r.contractor_tax_id, r.tax_country!) : null;
+
+    const hasTax = r.withholding_rate !== null && r.withheld_amount !== null && r.net_amount !== null;
+    const crossBorder = r.tax_treatment === "cross_border";
+    const hasFx = r.local_amount !== null && r.local_currency;
 
     return (
-        <div className="card p-5 hover:bg-[var(--surface-2)] transition-colors">
-            <div className="flex items-start gap-4 flex-wrap md:flex-nowrap">
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[rgba(47,230,168,0.08)] border border-[rgba(47,230,168,0.2)] text-[var(--accent)]">
-                    <FileText size={16} />
+        <div className="card overflow-hidden">
+            <div className="flex items-start gap-4 p-5">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[rgba(47,230,168,0.08)] border border-[rgba(47,230,168,0.2)] text-[var(--accent)]">
+                    <FileText size={17} />
                 </div>
-
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium">{r.payee_name}</span>
+                        <span className="font-medium text-[var(--text)] text-[15px]">{r.payee_name}</span>
                         {r.ai_confidence && <ConfidencePill level={r.ai_confidence} />}
-                        {r.fx_rate !== null && (
-                            <span className="text-[9px] font-mono uppercase tracking-wider border rounded px-1.5 py-0.5 text-[var(--accent)] bg-[rgba(47,230,168,0.06)] border-[rgba(47,230,168,0.2)]">
-                                FX pinned
-                            </span>
-                        )}
+                        {hasFx && <Tag color="accent">FX pinned</Tag>}
+                        {hasTax && <Tag color="amber">Tax withheld</Tag>}
+                        {crossBorder && <Tag color="accent">Cross-border</Tag>}
                     </div>
-                    {r.description && <div className="text-sm text-[var(--text-dim)] mt-0.5 truncate">{r.description}</div>}
-                    <div className="flex items-center gap-3 mt-2 text-[11px] font-mono text-[var(--text-faint)] flex-wrap">
-                        {invDate && <span>Invoice: {invDate}</span>}
-                        {r.invoice_number && <span>#{r.invoice_number}</span>}
-                        <span>Saved {created}</span>
+                    {r.description && <div className="text-sm text-[var(--text-dim)] mt-1 line-clamp-1">{r.description}</div>}
+                    <div className="flex items-center gap-2 mt-2 text-[11px] font-mono text-[var(--text-faint)] flex-wrap">
+                        {invDate && <span>Invoice {invDate}</span>}
+                        {r.invoice_number && <><span className="opacity-40">·</span><span>#{r.invoice_number}</span></>}
+                        <span className="opacity-40">·</span><span>Saved {created}</span>
                     </div>
-                    {r.ai_notes && (
-                        <div className="mt-2 text-xs text-[#f5b14c] flex items-start gap-1.5">
-                            <AlertCircle size={12} className="mt-0.5 shrink-0" /> {r.ai_notes}
-                        </div>
-                    )}
                 </div>
-
-                <div className="text-right shrink-0 md:ml-4">
-                    <div className="font-mono text-lg font-semibold">{r.amount.toLocaleString("en-US", { maximumFractionDigits: 2 })}</div>
-                    <div className="text-[10px] text-[var(--text-faint)] uppercase font-mono">{r.currency}</div>
-                    {r.local_amount !== null && r.local_currency && (
-                        <>
-                            <div className="mt-1.5 text-[11px] font-mono text-[var(--text-dim)]">
-                                ≈ {r.local_amount.toLocaleString("en-US", { maximumFractionDigits: 0 })} {r.local_currency}
-                            </div>
-                            {fxDate && (
-                                <div className="text-[9px] font-mono text-[var(--text-faint)] uppercase tracking-wider mt-0.5">
-                                    pinned {fxDate}
-                                </div>
-                            )}
-                            {r.fx_rate !== null && (
-                                <div className="text-[9px] font-mono text-[var(--text-faint)] mt-0.5">
-                                    1 {r.currency} = {r.fx_rate.toLocaleString("en-US", { maximumFractionDigits: 4 })} {r.local_currency}
-                                </div>
-                            )}
-                            <div className="text-[9px] font-mono text-[var(--text-faint)] mt-0.5">
-                                src: fawazahmed0
-                            </div>
-                        </>
-                    )}
+                <div className="text-right shrink-0">
+                    <div className="font-mono text-xl font-semibold text-[var(--text)]">{fmt(r.amount)}</div>
+                    <div className="text-[10px] text-[var(--text-faint)] uppercase font-mono tracking-wider">{r.currency} gross</div>
                 </div>
             </div>
+
+            {r.ai_notes && (
+                <div className="mx-5 mb-4 -mt-1 flex items-start gap-2 text-xs text-[#f5b14c] bg-[rgba(245,177,76,0.06)] border border-[rgba(245,177,76,0.18)] rounded-lg px-3 py-2">
+                    <AlertCircle size={13} className="mt-0.5 shrink-0" /> <span>{r.ai_notes}</span>
+                </div>
+            )}
+
+            {(hasTax || crossBorder || hasFx) && (
+                <div className="border-t border-[var(--border)] bg-[var(--surface-2)]/30 px-5 py-4">
+                    {hasTax ? (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4">
+                            <Metric label="Gross" value={`${fmt(r.amount)} ${r.currency}`} />
+                            <Metric label={`Withholding · ${(r.withholding_rate! * 100).toFixed(0)}%`} value={`− ${fmt(r.withheld_amount!)}`} tone="amber" />
+                            <Metric label="Net to contractor" value={`${fmt(r.net_amount!)} ${r.currency}`} tone="accent" emphasis />
+                            {hasFx && <Metric label={`Local value · pinned ${fxDate}`} value={`≈ ${fmt(r.local_amount!)} ${r.local_currency}`} />}
+                        </div>
+                    ) : (
+                        <CrossBorderStrip r={r} fxDate={fxDate} hasFx={!!hasFx} />
+                    )}
+
+                    <div className="flex items-center justify-between flex-wrap gap-2 mt-4 pt-3 border-t border-[var(--border)]">
+                        {r.contractor_tax_id && rule ? (
+                            <div className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--text-dim)]">
+                                <span className="text-[var(--text-faint)] uppercase tracking-wider">{rule.taxIdName}</span>
+                                <span>{r.contractor_tax_id}</span>
+                                {idValid ? <CheckCircle2 size={12} className="text-[var(--accent)]" /> : <AlertCircle size={12} className="text-[#f5b14c]" />}
+                            </div>
+                        ) : <span />}
+                        {rule && hasTax && <div className="text-[10px] font-mono text-[var(--text-faint)]">{r.tax_country} · {rule.source}</div>}
+                    </div>
+                </div>
+            )}
         </div>
     );
+}
+
+function CrossBorderStrip({ r, fxDate, hasFx }: { r: SavedRecord; fxDate: string | null; hasFx: boolean }) {
+    return (
+        <div>
+            <div className="flex items-center gap-2 text-sm font-medium mb-2">
+                <span>{r.company_country ? flagFor(r.company_country) : "🌐"}</span>
+                <span className="text-[var(--text-dim)]">{r.company_country ?? "Company"}</span>
+                <span className="text-[var(--text-faint)]">→</span>
+                <span>{r.tax_country ? flagFor(r.tax_country) : "🌐"}</span>
+                <span className="text-[var(--text-dim)]">{r.tax_country ?? "Contractor"}</span>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--accent)] border border-[rgba(47,230,168,0.25)] bg-[rgba(47,230,168,0.06)] rounded px-1.5 py-0.5 ml-1">cross-border</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
+                <Metric label="Paid in full (no withholding)" value={`${fmt(r.amount)} ${r.currency}`} tone="accent" emphasis />
+                {hasFx && <Metric label={`Local value · pinned ${fxDate}`} value={`≈ ${fmt(r.local_amount!)} ${r.local_currency}`} />}
+                <Metric label="Booked as" value="Operating expense" />
+            </div>
+            <p className="text-[11px] text-[var(--text-dim)] mt-3 leading-relaxed">
+                Payer is outside the contractor&rsquo;s country, so no local withholding applies — the contractor self-reports income to their own tax authority. Recorded as a deductible business expense for the company.
+            </p>
+        </div>
+    );
+}
+
+function Metric({ label, value, tone = "default", emphasis }: { label: string; value: string; tone?: "default" | "accent" | "amber"; emphasis?: boolean }) {
+    const valueColor = tone === "accent" ? "text-[var(--accent)]" : tone === "amber" ? "text-[#f5b14c]" : "text-[var(--text)]";
+    return (
+        <div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-faint)] mb-1">{label}</div>
+            <div className={`font-mono ${emphasis ? "text-base font-semibold" : "text-sm"} ${valueColor}`}>{value}</div>
+        </div>
+    );
+}
+
+function Tag({ children, color }: { children: React.ReactNode; color: "accent" | "amber" }) {
+    const cls = color === "accent"
+        ? "text-[var(--accent)] bg-[rgba(47,230,168,0.07)] border-[rgba(47,230,168,0.22)]"
+        : "text-[#f5b14c] bg-[rgba(245,177,76,0.07)] border-[rgba(245,177,76,0.22)]";
+    return <span className={`text-[9px] font-mono uppercase tracking-wider border rounded px-1.5 py-0.5 ${cls}`}>{children}</span>;
 }
 
 function ConfidencePill({ level }: { level: string }) {

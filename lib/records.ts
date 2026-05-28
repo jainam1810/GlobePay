@@ -15,4 +15,11 @@ export type SavedRecord = {
     local_currency: string | null;
     fx_rate: number | null;
     fx_pinned_at: string | null;
+    tax_country: string | null;
+    withholding_rate: number | null;
+    withheld_amount: number | null;
+    net_amount: number | null;
+    contractor_tax_id: string | null;
+    tax_treatment: string | null;   // 'domestic' | 'cross_border'
+    company_country: string | null;
 };
