@@ -22,7 +22,6 @@ export type SavedRecord = {
     contractor_tax_id: string | null;
     tax_treatment: string | null;   // 'domestic' | 'cross_border'
     company_country: string | null;
-    // Computed by GET /api/records (not stored): latest on-chain payment to
-    // this record's contractor, matched by wallet address.
-    payment?: { tx_hash: string; paid_at: string | null } | null;
+    client_id?: string | null;      // which client's ledger this row belongs to
+    client_name?: string | null;    // attached by the API for admin views
 };

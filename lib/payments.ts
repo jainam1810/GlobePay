@@ -22,4 +22,6 @@ export type SavedPayment = {
     recipient_count: number;
     fee_eth: number | null;      // network fee actually paid
     recipients: PaymentRecipient[];
+    client_id?: string | null;    // which client this payroll belongs to
+    client_name?: string | null;  // attached by the API for admin views
 };
