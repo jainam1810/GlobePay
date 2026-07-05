@@ -125,6 +125,7 @@ function RecordRow({ r }: { r: SavedRecord }) {
                         {hasFx && <Tag color="accent">FX pinned</Tag>}
                         {hasTax && <Tag color="amber">Tax withheld</Tag>}
                         {crossBorder && <Tag color="accent">Cross-border</Tag>}
+                        {r.payment && <PaidTag payment={r.payment} />}
                     </div>
                     {r.description && <div className="text-sm text-[var(--text-dim)] mt-1 line-clamp-1">{r.description}</div>}
                     <div className="flex items-center gap-2 mt-2 text-[11px] font-mono text-[var(--text-faint)] flex-wrap">
@@ -204,6 +205,17 @@ function Metric({ label, value, tone = "default", emphasis }: { label: string; v
             <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-faint)] mb-1">{label}</div>
             <div className={`font-mono ${emphasis ? "text-base font-semibold" : "text-sm"} ${valueColor}`}>{value}</div>
         </div>
+    );
+}
+
+function PaidTag({ payment }: { payment: { tx_hash: string; paid_at: string | null } }) {
+    const date = payment.paid_at ? new Date(payment.paid_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null;
+    return (
+        <Link href="/payments"
+            title={date ? `Paid on ${date} — view receipt` : "View receipt"}
+            className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider border rounded px-1.5 py-0.5 text-[#04130d] bg-[var(--accent)] border-[var(--accent)] font-semibold hover:opacity-90 transition">
+            <CheckCircle2 size={10} /> Paid
+        </Link>
     );
 }
 

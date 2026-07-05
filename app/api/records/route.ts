@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { getFxRate } from "@/lib/fx";
-import { findContractorByName } from "@/lib/match";
+import { findContractorByName, matchContractor } from "@/lib/match";
+import type { DbContractor } from "@/lib/contractor-types";
+import type { PaymentRecipient } from "@/lib/payments";
 import { computeWithholding } from "@/lib/tax-rules";
 import { getCompanyCountry } from "@/lib/company";
 
@@ -74,9 +76,38 @@ export async function POST(req: Request) {
 
 export async function GET() {
     try {
-        const { data, error } = await getSupabase().from("records").select("*").order("created_at", { ascending: false });
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-        return NextResponse.json({ records: data || [] });
+        const supabase = getSupabase();
+        const [recordsRes, contractorsRes, paymentsRes] = await Promise.all([
+            supabase.from("records").select("*").order("created_at", { ascending: false }),
+            supabase.from("contractors").select("*"),
+            supabase.from("payments").select("tx_hash, paid_at, recipients"),
+        ]);
+        if (recordsRes.error) return NextResponse.json({ error: recordsRes.error.message }, { status: 500 });
+
+        // Reconciliation: invoice record → contractor (by name) → wallet →
+        // latest on-chain payment that included that wallet. Matched by wallet
+        // address, so a record shows PAID once its contractor has been paid.
+        // If the payments table doesn't exist yet, records still load unlinked.
+        const contractors = (contractorsRes.data as DbContractor[]) || [];
+        const payments = (paymentsRes.error ? [] : paymentsRes.data || []) as
+            { tx_hash: string; paid_at: string | null; recipients: PaymentRecipient[] }[];
+
+        const latestByWallet = new Map<string, { tx_hash: string; paid_at: string | null }>();
+        for (const p of payments) {
+            for (const r of p.recipients || []) {
+                const w = r.wallet.toLowerCase();
+                const prev = latestByWallet.get(w);
+                if (!prev || (p.paid_at ?? "") > (prev.paid_at ?? "")) {
+                    latestByWallet.set(w, { tx_hash: p.tx_hash, paid_at: p.paid_at });
+                }
+            }
+        }
+
+        const records = (recordsRes.data || []).map((rec) => {
+            const c = matchContractor(rec.payee_name, contractors);
+            return { ...rec, payment: c ? latestByWallet.get(c.wallet.toLowerCase()) ?? null : null };
+        });
+        return NextResponse.json({ records });
     } catch (e) {
         return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 500 });
     }
