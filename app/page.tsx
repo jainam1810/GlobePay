@@ -78,6 +78,14 @@ export default function PayrollPage() {
       await publicClient.waitForTransactionReceipt({ hash });
       await refetchAllowance();
       setPhase("done");
+      // Save the payment to history. The server rebuilds everything from the
+      // chain using just the hash — if this fails, "Import past payments" on
+      // the Payments page recovers it, so never block the success UI on it.
+      fetch("/api/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ txHash: hash }),
+      }).catch(() => {});
     } catch (e) { setErr(humanError(e)); setPhase("failed"); }
   }
 
@@ -143,8 +151,11 @@ export default function PayrollPage() {
           {phase === "done" && txHash && (
             <div className="fade-up notice mt-6 rounded-xl px-4 py-3 text-sm flex items-center gap-2 flex-wrap">
               <CheckCircle2 size={16} /> All {count} contractors paid in <span className="font-semibold">one transaction</span>.
-              <a className="inline-flex items-center gap-1 underline underline-offset-2" href={`https://sepolia.basescan.org/tx/${txHash}`} target="_blank" rel="noreferrer">
-                View on Basescan <ExternalLink size={13} />
+              <Link className="inline-flex items-center gap-1 underline underline-offset-2 font-medium" href="/payments">
+                View receipt →
+              </Link>
+              <a className="inline-flex items-center gap-1 underline underline-offset-2 opacity-70" href={`https://sepolia.basescan.org/tx/${txHash}`} target="_blank" rel="noreferrer">
+                Basescan <ExternalLink size={13} />
               </a>
             </div>
           )}

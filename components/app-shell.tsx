@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Send, Users, FileText, Database, Download } from "lucide-react";
+import { LayoutDashboard, Send, Users, FileText, Database, Download, History } from "lucide-react";
 import ConnectButton from "@/components/connect-button";
 import WalletCard from "@/components/wallet-card";
 import CompanyBadge from "@/components/company-badge";
@@ -11,6 +11,7 @@ const nav = [
     { href: "/", label: "Payroll", icon: Send },
     { href: "/contractors", label: "Contractors", icon: Users },
     { href: "/invoices", label: "Invoices", icon: FileText },
+    { href: "/payments", label: "Payments", icon: History },
     { href: "/records", label: "Records", icon: Database },
     { href: "/export", label: "Export", icon: Download },
 ];
