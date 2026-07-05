@@ -4,7 +4,7 @@
 import { createPublicClient, http, parseEventLogs, formatUnits, formatEther, erc20Abi } from "viem";
 import { baseSepolia } from "viem/chains";
 import { USDC_ADDRESS, USDC_DECIMALS } from "@/lib/usdc";
-import { DISPERSE_ADDRESS } from "@/lib/disperse";
+import { DISPERSE_ADDRESS, disperseAbi } from "@/lib/disperse";
 import { getSupabase } from "@/lib/supabase";
 import type { PaymentRecipient } from "@/lib/payments";
 import type { DbContractor } from "@/lib/contractor-types";
@@ -38,15 +38,26 @@ export async function buildPaymentRow(txHash: `0x${string}`): Promise<PaymentRow
 
     const receipt = await client.getTransactionReceipt({ hash: txHash });
     if (receipt.status !== "success") throw new Error("That transaction failed on-chain — nothing was paid.");
-    if (receipt.to?.toLowerCase() !== DISPERSE_ADDRESS.toLowerCase()) {
-        throw new Error("That transaction is not a GlobePay payroll run.");
+
+    // Identify the payroll by the Dispersed event our contract emits, not by
+    // receipt.to — smart-account wallets (EIP-7702/4337) wrap the call, so the
+    // outer transaction's target isn't the Disperse contract.
+    const dispersed = parseEventLogs({ abi: disperseAbi, eventName: "Dispersed", logs: receipt.logs })
+        .find((log) => log.address.toLowerCase() === DISPERSE_ADDRESS.toLowerCase());
+    if (!dispersed) {
+        throw new Error(
+            "No payroll execution found in that transaction. If you signed with a wallet that " +
+            "holds no test USDC (or hasn't approved the contract), the payment failed inside the " +
+            "transaction even though the wallet showed it as confirmed."
+        );
     }
+    const payer = dispersed.args.sender;
 
     // The USDC contract's own Transfer events are the per-recipient source of
     // truth (one per recipient, emitted by transferFrom inside the batch).
     const transfers = parseEventLogs({ abi: erc20Abi, eventName: "Transfer", logs: receipt.logs })
         .filter((log) => log.address.toLowerCase() === USDC_ADDRESS.toLowerCase())
-        .filter((log) => log.args.from.toLowerCase() === receipt.from.toLowerCase());
+        .filter((log) => log.args.from.toLowerCase() === payer.toLowerCase());
     if (transfers.length === 0) throw new Error("No USDC transfers found in that transaction.");
 
     const block = await client.getBlock({ blockNumber: receipt.blockNumber });
@@ -73,7 +84,7 @@ export async function buildPaymentRow(txHash: `0x${string}`): Promise<PaymentRow
         tx_hash: txHash,
         block_number: Number(receipt.blockNumber),
         paid_at: new Date(Number(block.timestamp) * 1000).toISOString(),
-        from_address: receipt.from,
+        from_address: payer,   // who actually funded it, per the contract event
         token_address: USDC_ADDRESS,
         token_symbol: "USDC",
         total_amount: Math.round(total * 100) / 100,

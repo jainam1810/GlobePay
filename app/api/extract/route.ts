@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { invoiceSchema, type ExtractedInvoice } from "@/lib/invoice-schema";
+import { getSessionInfo } from "@/lib/auth";
 
 const MODEL = "gemini-2.5-flash";
 
+// Legacy invoice OCR — superseded by /api/import-freelancers. Kept for now,
+// but admin-gated so it can't burn Gemini quota unauthenticated.
 export async function POST(req: Request) {
     try {
+        const s = await getSessionInfo();
+        if (!s || s.role !== "globepay_admin") return NextResponse.json({ error: "GlobePay admin only" }, { status: 403 });
         const { dataUrl, mimeType } = await req.json();
         if (!dataUrl || !mimeType) {
             return NextResponse.json({ error: "Missing file" }, { status: 400 });

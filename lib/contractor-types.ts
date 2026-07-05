@@ -1,6 +1,7 @@
 export type DbContractor = {
     id: string;
     created_at: string;
+    client_id?: string | null;   // which client this freelancer belongs to
     name: string;
     role: string | null;
     country: string;

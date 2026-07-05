@@ -12,4 +12,14 @@ export const disperseAbi = [
         ],
         outputs: [],
     },
+    {
+        type: "event",
+        name: "Dispersed",
+        inputs: [
+            { name: "token", type: "address", indexed: true },
+            { name: "sender", type: "address", indexed: true },
+            { name: "totalRecipients", type: "uint256", indexed: false },
+            { name: "totalAmount", type: "uint256", indexed: false },
+        ],
+    },
 ] as const;
