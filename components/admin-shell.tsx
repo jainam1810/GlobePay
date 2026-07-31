@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, History, LayoutDashboard, Scale } from "lucide-react";
+import { Building2, History, LayoutDashboard, Scale, FileText } from "lucide-react";
 import SignOutButton from "@/components/sign-out-button";
 
 const nav = [
@@ -9,6 +9,7 @@ const nav = [
     { href: "/admin/clients", label: "Clients", icon: Building2 },
     { href: "/admin/payments", label: "All payments", icon: History },
     { href: "/admin/ledger", label: "Tax ledger", icon: Scale },
+    { href: "/admin/audit-pack", label: "Audit pack", icon: FileText },
 ];
 
 export default function AdminShell({ children, email }: { children: React.ReactNode; email: string | null }) {

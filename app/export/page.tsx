@@ -1,4 +1,3 @@
-import ComingSoon from "@/components/coming-soon";
-export default function Page() {
-    return <ComingSoon kicker="Tax & audit" title="Export pack" blurb="One click → an audit-ready PDF, country by country. The shoebox-of-receipts problem, solved." />;
-}
+// Superseded by the real audit pack (/admin/audit-pack and /portal/audit-pack).
+import { redirect } from "next/navigation";
+export default function LegacyExport() { redirect("/route"); }

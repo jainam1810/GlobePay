@@ -225,3 +225,90 @@ body::after {
 .delay-3 {
   animation-delay: .21s;
 }
+
+/* ---------------------------------------------------------------------------
+   Print — the audit pack.
+
+   An audit pack gets filed, emailed to an accountant and read on paper, so it
+   prints as a plain black-on-white document rather than the dark treasury UI.
+   Everything that isn't part of the document (sidebar, topbar, buttons) is
+   dropped, and the token overrides below flip the palette without touching a
+   single component's markup.
+--------------------------------------------------------------------------- */
+@media print {
+
+  /* Chrome/Safari won't print backgrounds by default, which would leave dark
+     text on dark fills. Forcing colour-adjust keeps what remains accurate. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Flip the design tokens instead of restyling each component. */
+  :root {
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #f6f7f9;
+    --border: rgba(0, 0, 0, 0.12);
+    --border-strong: rgba(0, 0, 0, 0.2);
+    --text: #101319;
+    --text-dim: #3f4753;
+    --text-faint: #6b7280;
+    --accent: #0b7a55;
+    /* darkened: mint is unreadable on white */
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #101319 !important;
+  }
+
+  /* Chrome is set to print one page by default; give the document real margins. */
+  @page {
+    margin: 16mm 14mm;
+  }
+
+  /* Everything that isn't the document itself. */
+  nav,
+  aside,
+  header,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Entrance animations would otherwise print a blank page. */
+  .fade-up {
+    opacity: 1 !important;
+    animation: none !important;
+  }
+
+  .audit-doc {
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    max-width: none !important;
+    background: #fff !important;
+  }
+
+  /* Keep a country's heading with its first rows, and never split a payment
+     across two sheets — a half-row is useless to an auditor. */
+  .audit-section {
+    break-inside: auto;
+    break-before: auto;
+  }
+
+  .audit-section h3 {
+    break-after: avoid;
+  }
+
+  .audit-row {
+    break-inside: avoid;
+  }
+
+  /* Links print as text; the hash is already spelled out in full. */
+  a {
+    text-decoration: none !important;
+    color: #0b7a55 !important;
+  }
+}
