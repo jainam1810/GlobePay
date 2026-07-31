@@ -1,24 +1,39 @@
 "use client";
-// The audit pack: every payment a company made, grouped by the freelancer's
-// country, with the tax treatment and the FX rate that was frozen at pay time,
-// and an on-chain hash anyone can verify independently.
+// The audit pack. Two jobs that pull in opposite directions:
 //
-// Deliberately printed rather than generated with a PDF library: the browser's
-// own print engine handles pagination, fonts and page breaks better than we
-// would by hand, and it keeps the bundle free of a ~350KB dependency. What you
-// see is exactly what comes out.
+//   on screen  — find one payment among thousands
+//   on paper   — a complete, ordered record someone can rely on
+//
+// So the page is a filterable table, and the printed output is whatever the
+// filters currently select, with the scope stated in the document itself. That
+// last part matters: a filtered table that doesn't say it's filtered reads as
+// the complete record, and exporting one as an audit document misrepresents it.
 import { useEffect, useMemo, useState } from "react";
-import { Printer, AlertCircle, Loader2, FileText, ExternalLink } from "lucide-react";
+import {
+    Printer, AlertCircle, Loader2, FileText, Search, ChevronRight, X,
+} from "lucide-react";
 import type { SavedRecord } from "@/lib/records";
 import { getTaxRule } from "@/lib/tax-rules";
 import { flagFor } from "@/lib/contractor-types";
 
 const ALL = "__all__";
+type SortKey = "date_desc" | "date_asc" | "amount_desc" | "amount_asc" | "name_asc";
 
-export default function AuditPack({ companyName }: { companyName?: string }) {
+const money = (n: number | null | undefined) =>
+    Number(n ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const whenOf = (r: SavedRecord) => r.paid_at ?? r.invoice_date ?? r.created_at;
+
+export default function AuditPack() {
     const [records, setRecords] = useState<SavedRecord[] | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [client, setClient] = useState<string>(ALL);
+
+    const [q, setQ] = useState("");
+    const [client, setClient] = useState(ALL);
+    const [country, setCountry] = useState(ALL);
+    const [treatment, setTreatment] = useState(ALL);
+    const [year, setYear] = useState(ALL);
+    const [sort, setSort] = useState<SortKey>("date_desc");
 
     useEffect(() => {
         fetch("/api/records")
@@ -27,39 +42,60 @@ export default function AuditPack({ companyName }: { companyName?: string }) {
             .catch((e) => setError(e instanceof Error ? e.message : "Network error"));
     }, []);
 
-    // Only GlobePay admins see rows from more than one client.
+    // Memoised: `records ?? []` would be a fresh array on every render, which
+    // silently defeats every useMemo below — the filter and sort would re-run
+    // on each keystroke over the whole set.
+    const all = useMemo(() => records ?? [], [records]);
     const clientNames = useMemo(
-        () => [...new Set((records || []).map((r) => r.client_name).filter((n): n is string => !!n))].sort(),
-        [records],
-    );
-    const visible = useMemo(
-        () => (records || []).filter((r) => client === ALL || r.client_name === client),
-        [records, client],
-    );
+        () => [...new Set(all.map((r) => r.client_name).filter((n): n is string => !!n))].sort(), [all]);
+    const countries = useMemo(
+        () => [...new Set(all.map((r) => r.tax_country).filter((c): c is string => !!c))].sort(), [all]);
+    const years = useMemo(
+        () => [...new Set(all.map((r) => new Date(whenOf(r)).getFullYear()))].sort((a, b) => b - a), [all]);
 
-    // An audit pack is read country by country — that's how a tax authority or
-    // an accountant asks for it.
-    const byCountry = useMemo(() => {
-        const m = new Map<string, SavedRecord[]>();
-        visible.forEach((r) => {
-            const k = r.tax_country || "Unspecified";
-            m.set(k, [...(m.get(k) ?? []), r]);
+    const rows = useMemo(() => {
+        const needle = q.trim().toLowerCase();
+        const out = all.filter((r) => {
+            if (client !== ALL && r.client_name !== client) return false;
+            if (country !== ALL && r.tax_country !== country) return false;
+            if (treatment !== ALL && (r.tax_treatment ?? "") !== treatment) return false;
+            if (year !== ALL && String(new Date(whenOf(r)).getFullYear()) !== year) return false;
+            if (!needle) return true;
+            // Searchable by the things someone actually has to hand: a name, a
+            // tax ID from a letter, an invoice number, or a hash from a receipt.
+            return [r.payee_name, r.contractor_tax_id, r.invoice_number, r.tx_hash, r.tax_country, r.description]
+                .some((v) => v?.toLowerCase().includes(needle));
         });
-        return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-    }, [visible]);
+        const by: Record<SortKey, (a: SavedRecord, b: SavedRecord) => number> = {
+            date_desc: (a, b) => +new Date(whenOf(b)) - +new Date(whenOf(a)),
+            date_asc: (a, b) => +new Date(whenOf(a)) - +new Date(whenOf(b)),
+            amount_desc: (a, b) => Number(b.amount) - Number(a.amount),
+            amount_asc: (a, b) => Number(a.amount) - Number(b.amount),
+            name_asc: (a, b) => (a.payee_name ?? "").localeCompare(b.payee_name ?? ""),
+        };
+        return [...out].sort(by[sort]);
+    }, [all, q, client, country, treatment, year, sort]);
 
     const totals = useMemo(() => ({
-        gross: visible.reduce((s, r) => s + Number(r.amount || 0), 0),
-        withheld: visible.reduce((s, r) => s + Number(r.withheld_amount || 0), 0),
-        people: new Set(visible.map((r) => r.payee_name)).size,
-    }), [visible]);
+        gross: rows.reduce((s, r) => s + Number(r.amount || 0), 0),
+        withheld: rows.reduce((s, r) => s + Number(r.withheld_amount || 0), 0),
+        people: new Set(rows.map((r) => r.payee_name)).size,
+        countries: new Set(rows.map((r) => r.tax_country).filter(Boolean)).size,
+    }), [rows]);
 
-    const scope = client === ALL ? (companyName ?? "All clients") : client;
-    const generated = new Date();
+    const active = [
+        client !== ALL && { k: "client", label: client, clear: () => setClient(ALL) },
+        country !== ALL && { k: "country", label: country, clear: () => setCountry(ALL) },
+        treatment !== ALL && { k: "treatment", label: treatment === "cross_border" ? "Cross-border" : "Domestic", clear: () => setTreatment(ALL) },
+        year !== ALL && { k: "year", label: year, clear: () => setYear(ALL) },
+        q.trim() && { k: "q", label: `“${q.trim()}”`, clear: () => setQ("") },
+    ].filter(Boolean) as { k: string; label: string; clear: () => void }[];
+
+    const filtered = active.length > 0;
 
     if (error) {
         return (
-            <div className="rounded-xl border border-[var(--danger-line)] bg-[var(--danger-soft)] text-[var(--danger)] px-4 py-3 text-sm flex items-center gap-2">
+            <div className="rounded-[var(--radius)] border border-[var(--danger-line)] bg-[var(--danger-soft)] text-[var(--danger)] px-4 py-3 text-sm flex items-center gap-2">
                 <AlertCircle size={15} /> {error}
             </div>
         );
@@ -67,17 +103,17 @@ export default function AuditPack({ companyName }: { companyName?: string }) {
     if (records === null) {
         return (
             <div className="card p-10 flex items-center justify-center gap-2 text-[var(--text-dim)] text-sm">
-                <Loader2 size={15} className="animate-spin" /> Building your audit pack…
+                <Loader2 size={15} className="animate-spin" /> Loading records…
             </div>
         );
     }
-    if (records.length === 0) {
+    if (all.length === 0) {
         return (
             <div className="card p-12 text-center">
                 <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)] mb-4"><FileText size={20} /></div>
-                <div className="font-display text-xl font-semibold">Nothing to export yet</div>
+                <div className="text-xl font-medium tracking-[-0.02em]">Nothing to export yet</div>
                 <p className="text-[var(--text-dim)] text-sm mt-2 max-w-md mx-auto">
-                    Once a payroll is confirmed, every payment appears here as an audit-ready record — tax treatment, FX rate and on-chain proof included.
+                    Confirm a payment run and every payment lands here — tax treatment, exchange rate and on-chain proof included.
                 </p>
             </div>
         );
@@ -85,167 +121,263 @@ export default function AuditPack({ companyName }: { companyName?: string }) {
 
     return (
         <div>
-            {/* Controls — hidden when printing, they aren't part of the document */}
-            <div className="no-print flex items-center justify-between gap-3 flex-wrap mb-6">
-                <div className="flex items-center gap-2 flex-wrap">
-                    {clientNames.length > 1 && (
-                        <>
-                            <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-faint)] mr-1">Client</span>
-                            <Pill label="All clients" active={client === ALL} onClick={() => setClient(ALL)} />
-                            {clientNames.map((n) => <Pill key={n} label={n} active={client === n} onClick={() => setClient(n)} />)}
-                        </>
-                    )}
-                </div>
-                <button onClick={() => window.print()} className="btn-primary text-sm">
-                    <Printer size={15} /> Download PDF
-                </button>
-            </div>
-
-            <div className="audit-doc card p-8 md:p-10">
-                {/* Document header */}
-                <div className="flex items-start justify-between gap-6 flex-wrap border-b border-[var(--border)] pb-6">
-                    <div>
-                        <div className="kicker">Audit pack</div>
-                        <h2 className="font-display text-2xl font-semibold tracking-tight mt-1">{scope}</h2>
-                        <p className="text-[var(--text-dim)] text-sm mt-1">
-                            Every payment, with the tax treatment and exchange rate recorded at the moment it was paid.
-                        </p>
+            {/* ── toolbar: screen only, not part of the document ───────────── */}
+            <div className="no-print card p-3 md:p-4">
+                <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                    <div className="relative flex-1 min-w-0">
+                        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]" />
+                        <input
+                            value={q}
+                            onChange={(e) => setQ(e.target.value)}
+                            placeholder="Search name, tax ID, invoice number or transaction hash"
+                            aria-label="Search payments"
+                            className="w-full pl-9 pr-3 py-2 text-sm bg-[var(--surface-2)] border border-[var(--border)] rounded-lg focus:outline-none focus:border-[var(--accent)] transition placeholder:text-[var(--text-faint)]"
+                        />
                     </div>
-                    <div className="text-right text-[11px] font-mono text-[var(--text-faint)] leading-relaxed">
-                        <div>Generated {generated.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</div>
-                        <div>{visible.length} payment{visible.length === 1 ? "" : "s"} · {totals.people} freelancer{totals.people === 1 ? "" : "s"}</div>
-                        <div>{byCountry.length} countr{byCountry.length === 1 ? "y" : "ies"}</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {clientNames.length > 1 && (
+                            <Select value={client} onChange={setClient} label="Client"
+                                options={[[ALL, "All clients"], ...clientNames.map((c) => [c, c] as [string, string])]} />
+                        )}
+                        <Select value={year} onChange={setYear} label="Year"
+                            options={[[ALL, "All years"], ...years.map((y) => [String(y), String(y)] as [string, string])]} />
+                        <Select value={country} onChange={setCountry} label="Country"
+                            options={[[ALL, "All countries"], ...countries.map((c) => [c, c] as [string, string])]} />
+                        <Select value={treatment} onChange={setTreatment} label="Treatment"
+                            options={[[ALL, "All treatments"], ["domestic", "Domestic"], ["cross_border", "Cross-border"]]} />
+                        <Select value={sort} onChange={(v) => setSort(v as SortKey)} label="Sort"
+                            options={[["date_desc", "Newest first"], ["date_asc", "Oldest first"], ["amount_desc", "Largest first"], ["amount_asc", "Smallest first"], ["name_asc", "Name A–Z"]]} />
+                        <button onClick={() => window.print()} className="btn-primary text-sm py-2 px-4">
+                            <Printer size={15} /> Export PDF
+                        </button>
                     </div>
                 </div>
 
-                {/* Summary */}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-6 py-6 border-b border-[var(--border)]">
-                    <Total label="Total paid" value={`$${fmt(totals.gross)}`} accent />
-                    <Total label="Tax withheld" value={`$${fmt(totals.withheld)}`} />
-                    <Total label="Net to freelancers" value={`$${fmt(totals.gross - totals.withheld)}`} />
-                </div>
-
-                {byCountry.map(([country, rows]) => (
-                    <CountrySection key={country} country={country} rows={rows} />
-                ))}
-
-                <div className="mt-8 pt-5 border-t border-[var(--border)] text-[10px] text-[var(--text-faint)] leading-relaxed">
-                    Every payment listed here is anchored to a public blockchain transaction. The Proof reference is that
-                    transaction&rsquo;s hash — anyone can verify the amount, the recipient and the timestamp independently on
-                    Basescan, without trusting GlobePay or the payer. Exchange rates are the rates recorded on the day of
-                    payment and are not recalculated. Withholding is shown where the payer and freelancer are in the same
-                    country; cross-border payments are made in full, with the freelancer self-reporting locally.
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function CountrySection({ country, rows }: { country: string; rows: SavedRecord[] }) {
-    const rule = getTaxRule(country);
-    const gross = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
-    const withheld = rows.reduce((s, r) => s + Number(r.withheld_amount || 0), 0);
-
-    return (
-        <section className="audit-section pt-6">
-            <div className="flex items-baseline justify-between gap-3 flex-wrap">
-                <h3 className="font-display text-lg font-semibold flex items-center gap-2">
-                    <span>{flagFor(country)}</span> {country}
-                </h3>
-                <div className="font-mono text-xs text-[var(--text-dim)]">
-                    {rows.length} payment{rows.length === 1 ? "" : "s"} · ${fmt(gross)} gross
-                    {withheld > 0 && <> · ${fmt(withheld)} withheld</>}
-                </div>
-            </div>
-            {rule && (
-                <div className="text-[10px] text-[var(--text-faint)] mt-1 font-mono">
-                    {rule.withholdingLabel} · {rule.source}
-                </div>
-            )}
-
-            <div className="mt-4 divide-y divide-[var(--border)] border-y border-[var(--border)]">
-                {rows.map((r) => <Row key={r.id} r={r} />)}
-            </div>
-        </section>
-    );
-}
-
-function Row({ r }: { r: SavedRecord }) {
-    const rule = r.tax_country ? getTaxRule(r.tax_country) : null;
-    const paid = r.paid_at ? new Date(r.paid_at) : r.invoice_date ? new Date(r.invoice_date) : null;
-    const hasTax = r.withholding_rate !== null && r.withheld_amount !== null;
-    const crossBorder = r.tax_treatment === "cross_border";
-
-    return (
-        <div className="audit-row py-4">
-            <div className="flex items-baseline justify-between gap-4 flex-wrap">
-                <div className="font-medium text-[15px]">{r.payee_name}</div>
-                <div className="font-mono text-[15px] font-semibold">${fmt(r.amount)}</div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3 mt-3">
-                <Field label="Paid on" value={paid ? paid.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"} />
-                <Field label="Treatment" value={crossBorder ? "Cross-border" : hasTax ? "Domestic" : "—"} />
-                {r.local_amount !== null && r.local_currency ? (
-                    <Field
-                        label={`Local value · rate ${r.fx_rate ? Number(r.fx_rate).toFixed(4) : "—"}`}
-                        value={`${fmt(r.local_amount)} ${r.local_currency}`}
-                    />
-                ) : <Field label="Local value" value="—" />}
-                {hasTax ? (
-                    <Field label={`Withheld · ${((r.withholding_rate ?? 0) * 100).toFixed(0)}%`} value={`$${fmt(r.withheld_amount)}`} />
-                ) : (
-                    <Field label="Withheld" value={crossBorder ? "None — payer abroad" : "—"} />
+                {/* Active filters, always visible. Without these a filtered table
+                    looks like the whole record. */}
+                {filtered && (
+                    <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t border-[var(--border)]">
+                        <span className="text-[11px] uppercase tracking-wider text-[var(--text-faint)]">Filtered by</span>
+                        {active.map((f) => (
+                            <button key={f.k} onClick={f.clear}
+                                className="inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-lg border border-[var(--accent-line)] bg-[var(--accent-soft)] text-[var(--accent)] transition hover:brightness-110">
+                                {f.label}<X size={11} />
+                            </button>
+                        ))}
+                        <button
+                            onClick={() => { setQ(""); setClient(ALL); setCountry(ALL); setTreatment(ALL); setYear(ALL); }}
+                            className="text-[12px] text-[var(--text-dim)] underline underline-offset-2 hover:text-[var(--text)] transition ml-1">
+                            Clear all
+                        </button>
+                    </div>
                 )}
             </div>
 
-            {r.contractor_tax_id && rule && (
-                <div className="mt-2 text-[10px] font-mono text-[var(--text-faint)]">
-                    {rule.taxIdName} {r.contractor_tax_id}
-                </div>
-            )}
+            {/* ── the document ─────────────────────────────────────────────── */}
+            <div className="audit-doc card mt-4 overflow-hidden">
+                <div className="px-5 md:px-7 pt-6 pb-5 border-b border-[var(--border)]">
+                    <div className="flex items-start justify-between gap-6 flex-wrap">
+                        <div>
+                            <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--accent)]">Audit pack</div>
+                            <h2 className="text-2xl font-medium tracking-[-0.02em] mt-1">
+                                {client !== ALL ? client : "All payments"}
+                            </h2>
+                        </div>
+                        <div className="text-right text-[11px] font-mono text-[var(--text-faint)] leading-relaxed">
+                            <div>Generated {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</div>
+                            <div>{rows.length} of {all.length} payment{all.length === 1 ? "" : "s"}</div>
+                        </div>
+                    </div>
 
-            {r.tx_hash && (
-                <div className="mt-2 flex items-center gap-1.5 text-[10px] font-mono text-[var(--text-faint)] break-all">
-                    <span className="uppercase tracking-wider shrink-0">Proof</span>
-                    <a href={`https://sepolia.basescan.org/tx/${r.tx_hash}`} target="_blank" rel="noreferrer"
-                        className="text-[var(--accent)] hover:underline underline-offset-2 inline-flex items-center gap-1">
-                        {r.tx_hash}<ExternalLink size={9} className="no-print shrink-0" />
-                    </a>
+                    {/* Scope. Prints with the document — the reader must know what
+                        this covers and, just as importantly, what it leaves out. */}
+                    <div className={`mt-4 rounded-lg px-3.5 py-2.5 text-[12px] leading-relaxed border ${filtered
+                        ? "border-[var(--warn-line)] bg-[var(--warn-soft)] text-[var(--warn)]"
+                        : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-dim)]"}`}>
+                        {filtered ? (
+                            <>
+                                <span className="font-medium">Partial record.</span>{" "}
+                                Showing {rows.length} of {all.length} payments, filtered by {active.map((f) => f.label).join(" · ")}.
+                            </>
+                        ) : (
+                            <>Complete record — all {all.length} payment{all.length === 1 ? "" : "s"} on file, no filters applied.</>
+                        )}
+                    </div>
                 </div>
-            )}
+
+                {/* Totals reflect the filters, not the whole table. */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[var(--border)] border-b border-[var(--border)]">
+                    <Stat label="Gross paid" value={`$${money(totals.gross)}`} accent />
+                    <Stat label="Tax withheld" value={`$${money(totals.withheld)}`} />
+                    <Stat label="Net to contractors" value={`$${money(totals.gross - totals.withheld)}`} />
+                    <Stat label="Contractors" value={`${totals.people}`} sub={`${totals.countries} countr${totals.countries === 1 ? "y" : "ies"}`} />
+                </div>
+
+                {rows.length === 0 ? (
+                    <div className="p-12 text-center">
+                        <div className="text-[15px] font-medium">No payments match these filters</div>
+                        <p className="text-[var(--text-dim)] text-sm mt-1.5">Try a different year or country, or clear the filters to see everything.</p>
+                        <button onClick={() => { setQ(""); setClient(ALL); setCountry(ALL); setTreatment(ALL); setYear(ALL); }}
+                            className="no-print mt-4 text-sm text-[var(--accent)] underline underline-offset-2">Clear all filters</button>
+                    </div>
+                ) : (
+                    <Table rows={rows} />
+                )}
+
+                <div className="px-5 md:px-7 py-4 border-t border-[var(--border)] text-[11px] text-[var(--text-faint)] leading-relaxed">
+                    Each payment is anchored to a public blockchain transaction; the proof reference is that transaction&rsquo;s
+                    hash, verifiable by anyone on Basescan without trusting GlobePay or the payer. Exchange rates are those
+                    recorded on the day of payment and are never recalculated. Withholding applies where payer and contractor
+                    are in the same country; cross-border payments are made in full and the contractor reports locally.
+                </div>
+            </div>
         </div>
     );
 }
 
-const fmt = (n: number | null | undefined) =>
-    Number(n ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/* ── table ───────────────────────────────────────────────────────────────── */
 
-function Total({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function Table({ rows }: { rows: SavedRecord[] }) {
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-full min-w-[860px] border-collapse text-left">
+                {/* Sticky so the column meaning survives a long scroll. */}
+                <thead className="audit-thead sticky top-0 z-10 bg-[var(--surface-2)]">
+                    <tr className="text-[11px] uppercase tracking-wider text-[var(--text-faint)]">
+                        <Th className="w-[104px]">Date</Th>
+                        <Th>Contractor</Th>
+                        <Th className="w-[132px]">Country</Th>
+                        <Th className="w-[124px]">Treatment</Th>
+                        <Th className="w-[112px] text-right">Gross</Th>
+                        <Th className="w-[112px] text-right">Withheld</Th>
+                        <Th className="w-[112px] text-right">Net</Th>
+                        <Th className="w-[128px]">Proof</Th>
+                        <Th className="w-[36px] no-print" />
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows.map((r) => <Row key={r.id} r={r} />)}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+function Th({ children, className = "" }: { children?: React.ReactNode; className?: string }) {
+    return <th scope="col" className={`px-3 md:px-4 py-2.5 font-normal border-b border-[var(--border)] ${className}`}>{children}</th>;
+}
+
+function Row({ r }: { r: SavedRecord }) {
+    const [open, setOpen] = useState(false);
+    const when = new Date(whenOf(r));
+    const hasTax = r.withholding_rate !== null && r.withheld_amount !== null;
+    const crossBorder = r.tax_treatment === "cross_border";
+    const net = hasTax ? Number(r.net_amount ?? 0) : Number(r.amount ?? 0);
+    const rule = r.tax_country ? getTaxRule(r.tax_country) : null;
+
+    return (
+        <>
+            <tr className="audit-row border-b border-[var(--border)] hover:bg-[var(--surface-2)] transition-colors">
+                <Td className="font-mono text-[12px] text-[var(--text-dim)] whitespace-nowrap">
+                    {when.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}
+                </Td>
+                <Td>
+                    <div className="text-[13px] font-medium truncate">{r.payee_name}</div>
+                    {r.contractor_tax_id && (
+                        <div className="font-mono text-[11px] text-[var(--text-faint)] truncate">{rule?.taxIdName} {r.contractor_tax_id}</div>
+                    )}
+                </Td>
+                <Td className="text-[12px] text-[var(--text-dim)] whitespace-nowrap">
+                    <span className="mr-1.5">{flagFor(r.tax_country ?? "")}</span>{r.tax_country ?? "—"}
+                </Td>
+                <Td className="text-[12px] text-[var(--text-dim)] whitespace-nowrap">
+                    <span className={`dot ${crossBorder ? "dot-ok" : hasTax ? "dot-pending" : "dot-failed"} mr-1.5`} />
+                    {crossBorder ? "Cross-border" : hasTax ? "Domestic" : "—"}
+                </Td>
+                <Td className="font-mono text-[13px] text-right whitespace-nowrap">${money(r.amount)}</Td>
+                <Td className="font-mono text-[13px] text-right whitespace-nowrap text-[var(--text-dim)]">
+                    {hasTax ? `−$${money(r.withheld_amount)}` : "—"}
+                </Td>
+                <Td className="font-mono text-[13px] text-right whitespace-nowrap font-medium">${money(net)}</Td>
+                <Td className="whitespace-nowrap">
+                    {r.tx_hash ? (
+                        <a href={`https://sepolia.basescan.org/tx/${r.tx_hash}`} target="_blank" rel="noreferrer"
+                            className="font-mono text-[11px] text-[var(--accent)] hover:underline underline-offset-2">
+                            {r.tx_hash.slice(0, 10)}…
+                        </a>
+                    ) : <span className="text-[11px] text-[var(--text-faint)]">—</span>}
+                </Td>
+                <Td className="no-print">
+                    <button onClick={() => setOpen(!open)} aria-expanded={open}
+                        aria-label={`Details for ${r.payee_name}`}
+                        className="text-[var(--text-faint)] hover:text-[var(--text)] transition">
+                        <ChevronRight size={15} className={`transition-transform ${open ? "rotate-90" : ""}`} />
+                    </button>
+                </Td>
+            </tr>
+
+            {/* Drill-down: the supporting detail an auditor asks for second, once
+                they've found the row they care about. */}
+            {open && (
+                <tr className="audit-detail bg-[var(--surface-2)] border-b border-[var(--border)]">
+                    <td colSpan={9} className="px-3 md:px-4 py-4">
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            <Detail label="Local value"
+                                value={r.local_amount !== null && r.local_currency ? `${money(r.local_amount)} ${r.local_currency}` : "—"}
+                                sub={r.fx_rate ? `rate ${Number(r.fx_rate).toFixed(4)}, pinned ${r.fx_pinned_at ?? "at pay time"}` : undefined} />
+                            <Detail label="Withholding"
+                                value={hasTax ? `${((r.withholding_rate ?? 0) * 100).toFixed(0)}% · $${money(r.withheld_amount)}` : "None"}
+                                sub={crossBorder ? "Payer outside the contractor's country" : rule?.withholdingLabel} />
+                            <Detail label="Invoice" value={r.invoice_number || "—"} sub={r.description || undefined} />
+                            <Detail label="Paid from" value={r.company_country || "—"} sub={rule?.source} />
+                        </div>
+                        {r.tx_hash && (
+                            <div className="mt-3 pt-3 border-t border-[var(--border)] font-mono text-[11px] text-[var(--text-faint)] break-all">
+                                <span className="uppercase tracking-wider mr-2">Transaction</span>{r.tx_hash}
+                            </div>
+                        )}
+                    </td>
+                </tr>
+            )}
+        </>
+    );
+}
+
+function Td({ children, className = "" }: { children?: React.ReactNode; className?: string }) {
+    return <td className={`px-3 md:px-4 py-3 align-top ${className}`}>{children}</td>;
+}
+
+function Detail({ label, value, sub }: { label: string; value: string; sub?: string }) {
     return (
         <div>
-            <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-faint)] mb-1">{label}</div>
-            <div className={`font-mono text-xl font-semibold ${accent ? "text-[var(--accent)]" : "text-[var(--text)]"}`}>{value}</div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)] mb-1">{label}</div>
+            <div className="font-mono text-[12px] text-[var(--text)]">{value}</div>
+            {sub && <div className="text-[11px] text-[var(--text-faint)] mt-0.5 leading-snug">{sub}</div>}
         </div>
     );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: boolean }) {
     return (
-        <div>
-            <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-faint)] mb-0.5">{label}</div>
-            <div className="font-mono text-xs text-[var(--text)]">{value}</div>
+        <div className="bg-[var(--surface)] px-5 py-4">
+            <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)] mb-1">{label}</div>
+            <div className={`font-mono text-lg font-medium tracking-[-0.02em] ${accent ? "text-[var(--accent)]" : "text-[var(--text)]"}`}>{value}</div>
+            {sub && <div className="text-[11px] text-[var(--text-faint)] mt-0.5">{sub}</div>}
         </div>
     );
 }
 
-function Pill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function Select({ value, onChange, options, label }: {
+    value: string; onChange: (v: string) => void; options: [string, string][]; label: string;
+}) {
     return (
-        <button onClick={onClick}
-            className={`text-[11px] px-2.5 py-1 rounded-lg border transition ${active
-                ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
-                : "border-[var(--border-strong)] text-[var(--text-dim)] hover:text-[var(--text)]"}`}>
-            {label}
-        </button>
+        <select
+            aria-label={label}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="text-[13px] px-2.5 py-2 rounded-lg bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-dim)] focus:outline-none focus:border-[var(--accent)] transition"
+        >
+            {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
     );
 }
