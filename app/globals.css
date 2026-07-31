@@ -442,19 +442,36 @@ body::after {
     background: #fff !important;
   }
 
-  /* Keep a country's heading with its first rows, and never split a payment
-     across two sheets — a half-row is useless to an auditor. */
-  .audit-section {
-    break-inside: auto;
-    break-before: auto;
+  /* The table prints as a table. Repeating the header on every sheet is the
+     whole reason thead exists — without it page 2 onwards is unlabelled
+     columns of numbers. */
+  .audit-doc table {
+    width: 100% !important;
+    min-width: 0 !important;
+    font-size: 10pt;
   }
 
-  .audit-section h3 {
-    break-after: avoid;
+  .audit-doc .overflow-x-auto {
+    overflow: visible !important;
   }
 
-  .audit-row {
+  thead.audit-thead {
+    display: table-header-group;
+    position: static !important;
+    background: #f2f2f5 !important;
+  }
+
+  /* Never split a payment across two sheets — a half-row is useless to an
+     auditor trying to tie a figure back to a transaction. */
+  .audit-row,
+  .audit-detail {
     break-inside: avoid;
+  }
+
+  /* Drill-down rows are a screen affordance; on paper every row is already
+     shown in full, so an expanded one would just duplicate. */
+  .audit-detail {
+    display: none !important;
   }
 
   /* Links print as text; the hash is already spelled out in full. */
