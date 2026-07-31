@@ -8,6 +8,16 @@ export type DbClient = {
     notes: string | null;
 };
 
+// What POST /api/clients and PATCH /api/clients/[id] accept off the wire.
+// All optional because the payload is untrusted — the route decides what's required.
+export type ClientInput = {
+    company_name?: string;
+    home_country?: string;
+    wallet_address?: string | null;
+    contact_email?: string | null;
+    notes?: string | null;
+};
+
 // One freelancer inside a payroll run — snapshotted at prepare time.
 export type PayrollLineItem = {
     contractor_id: string;

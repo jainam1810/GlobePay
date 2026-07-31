@@ -92,7 +92,12 @@ export default function TaxLedger() {
 const fmt = (n: number) => Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 });
 
 function LedgerRow({ r }: { r: SavedRecord }) {
-    const paidDate = r.invoice_date ? new Date(r.invoice_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null;
+    // Prefer the on-chain settlement time (date + time of day); invoice_date is
+    // a bare DATE, so it can only ever give a day.
+    const settled = r.paid_at ? new Date(r.paid_at) : null;
+    const paidDate = settled
+        ? `${settled.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}, ${settled.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`
+        : r.invoice_date ? new Date(r.invoice_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null;
     const fxDate = r.fx_pinned_at ? new Date(r.fx_pinned_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" }) : null;
     const rule = r.tax_country ? getTaxRule(r.tax_country) : null;
     const idValid = r.contractor_tax_id && rule ? validateTaxId(r.contractor_tax_id, r.tax_country!) : null;

@@ -17,6 +17,22 @@ export async function GET() {
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
         let records = data || [];
+
+        // invoice_date is a DATE — no time of day in it. The audit-defensible
+        // moment is when the money actually moved, which is the block timestamp
+        // on the linked payment, so attach that for display.
+        if (records.length) {
+            const hashes = records.map((r) => r.tx_hash).filter(Boolean);
+            if (hashes.length) {
+                const { data: paid } = await supabase.from("payments").select("tx_hash, paid_at").in("tx_hash", hashes);
+                const paidAt = new Map((paid || []).map((p) => [p.tx_hash.toLowerCase(), p.paid_at]));
+                records = records.map((r) => ({
+                    ...r,
+                    paid_at: r.tx_hash ? paidAt.get(r.tx_hash.toLowerCase()) ?? null : null,
+                }));
+            }
+        }
+
         if (s.role === "globepay_admin" && records.length) {
             const { data: clients } = await supabase.from("clients").select("id, company_name");
             const names = new Map((clients || []).map((c) => [c.id, c.company_name]));

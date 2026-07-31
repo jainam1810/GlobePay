@@ -3,12 +3,16 @@ import { getSupabase } from "@/lib/supabase";
 import { isAddress } from "viem";
 import { getTaxRule } from "@/lib/tax-rules";
 import { getSessionInfo } from "@/lib/auth";
+import type { ContractorInput } from "@/lib/contractor-types";
 
-function validate(body: any): string | null {
+function validate(body: ContractorInput): string | null {
     if (!body.name?.trim()) return "Name is required";
     if (!body.country?.trim()) return "Country is required";
     if (!isAddress(body.wallet ?? "")) return "Wallet address is not a valid Ethereum address";
-    if (typeof body.monthly_amount !== "number" || body.monthly_amount <= 0) return "Monthly amount must be a positive number";
+    // Optional: a freelancer can exist without a default amount (0 = not set).
+    // The real figure is chosen per payroll run, so only reject nonsense here.
+    if (body.monthly_amount != null && (typeof body.monthly_amount !== "number" || body.monthly_amount < 0))
+        return "Default monthly amount must be a positive number";
     const rule = getTaxRule(body.country);
     if (rule && body.tax_id && !rule.taxIdRegex.test(String(body.tax_id).trim()))
         return `Tax ID doesn't match ${body.country} ${rule.taxIdName} format (e.g. ${rule.taxIdPlaceholder})`;
@@ -40,20 +44,20 @@ export async function POST(req: Request) {
         const s = await getSessionInfo();
         if (!s || s.role !== "globepay_admin") return NextResponse.json({ error: "GlobePay admin only" }, { status: 403 });
 
-        const body = await req.json();
+        const body = (await req.json()) as ContractorInput;
         if (!body.client_id) return NextResponse.json({ error: "client_id is required — every freelancer belongs to a client" }, { status: 400 });
         const err = validate(body);
         if (err) return NextResponse.json({ error: err }, { status: 400 });
 
-        const rule = getTaxRule(body.country);
+        const rule = getTaxRule(body.country!);
         const row = {
             client_id: body.client_id,
-            name: body.name.trim(),
+            name: body.name!.trim(),
             role: body.role?.trim() || null,
-            country: body.country.trim(),
+            country: body.country!.trim(),
             currency: rule?.currencyLocal ?? (body.currency || "USD"),
-            wallet: body.wallet.trim(),
-            monthly_amount: body.monthly_amount,
+            wallet: body.wallet!.trim(),
+            monthly_amount: body.monthly_amount ?? 0,
             tax_id: body.tax_id?.trim() || null,
         };
         const { data, error } = await getSupabase().from("contractors").insert(row).select().single();

@@ -24,4 +24,7 @@ export type SavedRecord = {
     company_country: string | null;
     client_id?: string | null;      // which client's ledger this row belongs to
     client_name?: string | null;    // attached by the API for admin views
+    // Block timestamp of the linked payment — when the money actually moved.
+    // Attached by the API; null when no payment row matches the tx hash.
+    paid_at?: string | null;
 };

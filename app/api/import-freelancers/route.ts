@@ -32,7 +32,10 @@ function validateRow(f: ImportedFreelancer): ValidatedRow {
     else if (!isAddress(f.wallet.trim())) problems.push("invalid wallet address (checksum failed)");
     if (!(SUPPORTED_COUNTRIES as readonly string[]).includes(f.country?.trim()))
         problems.push(`country "${f.country || "?"}" not supported for tax (${SUPPORTED_COUNTRIES.join(", ")})`);
-    if (!(typeof f.monthly_amount === "number") || f.monthly_amount <= 0) problems.push("missing/invalid monthly amount");
+    // A missing amount is fine — it's only a default, and the real figure is
+    // set per payroll run. Only a negative/garbage number is a problem.
+    if (f.monthly_amount != null && (typeof f.monthly_amount !== "number" || f.monthly_amount < 0))
+        problems.push("invalid monthly amount");
     if (f.tax_id?.trim() && getTaxRule(f.country) && !validateTaxId(f.tax_id.trim(), f.country))
         problems.push(`tax ID doesn't match ${f.country} format`);
     return { ...f, valid: problems.length === 0, problems };

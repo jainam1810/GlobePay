@@ -4,9 +4,12 @@
 
 export type PaymentRecipient = {
     wallet: string;
-    amount: number;          // USDC, human units
+    amount: number;          // USDC actually moved on-chain (testnet: a flat 1)
     name: string | null;     // contractor name at time of ingest (snapshot)
     country: string | null;
+    // Real USD this person was owed, from the payroll run behind this tx.
+    // null when no run is linked (payments imported straight from the chain).
+    intended_amount?: number | null;
 };
 
 export type SavedPayment = {
@@ -24,4 +27,8 @@ export type SavedPayment = {
     recipients: PaymentRecipient[];
     client_id?: string | null;    // which client this payroll belongs to
     client_name?: string | null;  // attached by the API for admin views
+    client_country?: string | null; // paying client's HQ — picks the fiat for fees
+    // Attached by the API from the linked payroll run, when there is one.
+    intended_total?: number | null;
+    run_note?: string | null;
 };
