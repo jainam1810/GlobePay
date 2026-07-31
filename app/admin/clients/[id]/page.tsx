@@ -126,7 +126,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             )}
 
             {error && (
-                <div className="fade-up mt-6 rounded-xl border border-[rgba(255,107,107,0.3)] bg-[rgba(255,107,107,0.08)] text-[#ff6b6b] px-4 py-3 text-sm flex items-center gap-2">
+                <div className="fade-up mt-6 rounded-xl border border-[var(--danger-line)] bg-[var(--danger-soft)] text-[var(--danger)] px-4 py-3 text-sm flex items-center gap-2">
                     <AlertCircle size={15} /> {error}
                 </div>
             )}
@@ -184,11 +184,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                 const [g1, g2] = avatarFor(c.name);
                                 const on = selected.has(c.id);
                                 return (
-                                    <div key={c.id} className={`flex items-center gap-4 px-5 md:px-6 py-3.5 transition-colors ${on ? "bg-[rgba(47,230,168,0.05)]" : "hover:bg-[var(--surface-2)]"}`}>
+                                    <div key={c.id} className={`flex items-center gap-4 px-5 md:px-6 py-3.5 transition-colors ${on ? "bg-[var(--accent-soft)]" : "hover:bg-[var(--surface-2)]"}`}>
                                         <input type="checkbox" checked={on} onChange={() => toggle(c.id)}
                                             aria-label={`Select ${c.name} for this payroll`}
                                             className="h-4 w-4 accent-[var(--accent)] shrink-0 cursor-pointer" />
-                                        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full font-display font-semibold text-xs text-[#04130d]" style={{ background: `linear-gradient(135deg, ${g1}, ${g2})` }}>{initials}</div>
+                                        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full font-display font-semibold text-xs text-[var(--accent-ink)]" style={{ background: `linear-gradient(135deg, ${g1}, ${g2})` }}>{initials}</div>
                                         <div className="min-w-0 flex-1 cursor-pointer" onClick={() => toggle(c.id)}>
                                             <div className="font-medium truncate text-sm">{c.name}</div>
                                             <div className="text-xs text-[var(--text-dim)] truncate">{c.role || "—"}</div>
@@ -212,7 +212,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                                 <Pencil size={13} />
                                             </button>
                                             <button onClick={() => removeFreelancer(c.id, c.name)}
-                                                title={`Remove ${c.name}`} className="text-[var(--text-faint)] hover:text-[#ff6b6b] transition">
+                                                title={`Remove ${c.name}`} className="text-[var(--text-faint)] hover:text-[var(--danger)] transition">
                                                 <Trash2 size={13} />
                                             </button>
                                         </div>
@@ -263,7 +263,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                 </div>
                                 <div className="font-mono text-sm font-semibold w-24 text-right">{formatUSD(Number(r.total_amount))}</div>
                                 {r.status === "pending_confirmation" && (
-                                    <button onClick={() => cancelRun(r.id)} className="text-[11px] text-[var(--text-faint)] hover:text-[#ff6b6b] transition">Cancel</button>
+                                    <button onClick={() => cancelRun(r.id)} className="text-[11px] text-[var(--text-faint)] hover:text-[var(--danger)] transition">Cancel</button>
                                 )}
                                 {r.status === "executed" && r.tx_hash && (
                                     <a href={`https://sepolia.basescan.org/tx/${r.tx_hash}`} target="_blank" rel="noreferrer" className="text-[var(--text-faint)] hover:text-[var(--text)]"><ExternalLink size={13} /></a>
@@ -391,8 +391,8 @@ function CopyButton({ value, title }: { value: string; title: string }) {
 }
 
 function RunStatus({ status }: { status: PayrollRun["status"] }) {
-    if (status === "executed") return <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider text-[var(--accent)] bg-[rgba(47,230,168,0.07)] border border-[rgba(47,230,168,0.22)] rounded px-1.5 py-0.5 shrink-0"><CheckCircle2 size={10} /> Paid</span>;
-    if (status === "pending_confirmation") return <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider text-[#f5b14c] bg-[rgba(245,177,76,0.07)] border border-[rgba(245,177,76,0.22)] rounded px-1.5 py-0.5 shrink-0"><Clock size={10} /> Awaiting client</span>;
+    if (status === "executed") return <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider text-[var(--accent)] bg-[var(--accent-soft)] border border-[var(--accent-line)] rounded px-1.5 py-0.5 shrink-0"><CheckCircle2 size={10} /> Paid</span>;
+    if (status === "pending_confirmation") return <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider text-[var(--warn)] bg-[var(--warn-soft)] border border-[var(--warn-line)] rounded px-1.5 py-0.5 shrink-0"><Clock size={10} /> Awaiting client</span>;
     if (status === "cancelled") return <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider text-[var(--text-faint)] border border-[var(--border)] rounded px-1.5 py-0.5 shrink-0"><XCircle size={10} /> Cancelled</span>;
     return <span className="text-[9px] font-mono uppercase tracking-wider text-[var(--text-faint)] border border-[var(--border)] rounded px-1.5 py-0.5 shrink-0">Draft</span>;
 }
@@ -466,7 +466,7 @@ function FreelancerForm({ clientId, existing, onDone, onCancel }: {
                     <input className={inputCls} placeholder="e.g. 12345678-1234" value={form.tax_id ?? ""} onChange={(e) => setForm({ ...form, tax_id: e.target.value })} />
                 </Field>
             </div>
-            {err && <div className="md:col-span-3 text-xs text-[#ff6b6b]">{err}</div>}
+            {err && <div className="md:col-span-3 text-xs text-[var(--danger)]">{err}</div>}
             <div className="md:col-span-3 flex items-center gap-2">
                 <button type="submit" disabled={busy} className="btn-primary text-sm disabled:opacity-50">
                     {busy ? "Saving…" : existing ? "Save changes" : "Add"}
@@ -524,7 +524,7 @@ function EditClientForm({ client, onSaved, onCancel }: { client: DbClient; onSav
                     <input className={`${inputCls} font-mono`} placeholder="0x…" value={form.wallet_address} onChange={(e) => setForm({ ...form, wallet_address: e.target.value })} />
                 </Field>
             </div>
-            {err && <div className="md:col-span-3 text-xs text-[#ff6b6b]">{err}</div>}
+            {err && <div className="md:col-span-3 text-xs text-[var(--danger)]">{err}</div>}
             <div className="md:col-span-3 flex items-center gap-2">
                 <button type="submit" disabled={busy} className="btn-primary text-sm disabled:opacity-50">{busy ? "Saving…" : "Save changes"}</button>
                 <button type="button" onClick={onCancel} className="text-xs text-[var(--text-dim)] hover:text-[var(--text)] transition">Cancel</button>

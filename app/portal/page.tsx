@@ -178,7 +178,7 @@ export default function PortalHome() {
             />
 
             {error && (
-                <div className="fade-up mt-6 rounded-xl border border-[rgba(255,107,107,0.3)] bg-[rgba(255,107,107,0.08)] text-[#ff6b6b] px-4 py-3 text-sm flex items-center gap-2">
+                <div className="fade-up mt-6 rounded-xl border border-[var(--danger-line)] bg-[var(--danger-soft)] text-[var(--danger)] px-4 py-3 text-sm flex items-center gap-2">
                     <AlertCircle size={15} /> {error}
                 </div>
             )}
@@ -189,7 +189,7 @@ export default function PortalHome() {
                 </div>
             )}
             {proposedRun && (
-                <div className="fade-up mt-6 rounded-xl border border-[rgba(245,177,76,0.3)] bg-[rgba(245,177,76,0.08)] text-[#f5b14c] px-4 py-3 text-sm flex items-start gap-2">
+                <div className="fade-up mt-6 rounded-xl border border-[var(--warn-line)] bg-[var(--warn-soft)] text-[var(--warn)] px-4 py-3 text-sm flex items-start gap-2">
                     <ShieldCheck size={16} className="shrink-0 mt-0.5" />
                     <span>
                         <span className="font-medium">Queued in your Safe.</span> Your signature is recorded — the payroll
@@ -225,7 +225,7 @@ export default function PortalHome() {
                             const [g1, g2] = avatarFor(li.name);
                             return (
                                 <div key={li.contractor_id} className="flex items-center gap-3 px-5 md:px-6 py-3">
-                                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full font-display font-semibold text-xs text-[#04130d]" style={{ background: `linear-gradient(135deg, ${g1}, ${g2})` }}>{initials}</div>
+                                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full font-display font-semibold text-xs text-[var(--accent-ink)]" style={{ background: `linear-gradient(135deg, ${g1}, ${g2})` }}>{initials}</div>
                                     <div className="min-w-0 flex-1">
                                         <div className="text-sm font-medium truncate">{li.name} <span className="ml-1">{flagFor(li.country)}</span></div>
                                         <div className="font-mono text-[10px] text-[var(--text-faint)]">{truncate(li.wallet)}</div>
@@ -276,7 +276,7 @@ export default function PortalHome() {
 
             {runs !== null && pending.length === 0 && (
                 <div className="fade-up delay-1 mt-8 card p-10 text-center">
-                    <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[rgba(47,230,168,0.1)] text-[var(--accent)] mb-4"><CheckCircle2 size={20} /></div>
+                    <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)] mb-4"><CheckCircle2 size={20} /></div>
                     <div className="font-display text-xl font-semibold">Nothing waiting for you</div>
                     <p className="text-[var(--text-dim)] text-sm mt-2">When GlobePay prepares your next payroll, it&rsquo;ll appear here for one-click confirmation.</p>
                 </div>
@@ -322,7 +322,7 @@ function TreasuryBalance({ address, isConnected, balance, viaSafe }: {
     return (
         <div className="fade-up delay-1 card mt-6 px-5 md:px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3 min-w-0">
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[rgba(47,230,168,0.08)] border border-[rgba(47,230,168,0.2)] text-[var(--accent)]">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--accent-soft)] border border-[var(--accent-line)] text-[var(--accent)]">
                     <Wallet size={17} />
                 </div>
                 <div className="min-w-0">
@@ -347,7 +347,7 @@ function TreasuryBalance({ address, isConnected, balance, viaSafe }: {
 
 function PortalBanner({ children, warn }: { children: React.ReactNode; warn?: boolean }) {
     const cls = warn
-        ? "border-[rgba(245,177,76,0.3)] bg-[rgba(245,177,76,0.08)] text-[#f5b14c]"
+        ? "border-[var(--warn-line)] bg-[var(--warn-soft)] text-[var(--warn)]"
         : "border-[var(--border-strong)] bg-[var(--surface-2)] text-[var(--text-dim)]";
     return <div className={`mx-5 md:mx-6 mb-4 rounded-xl border px-4 py-3 text-sm ${cls}`}>{children}</div>;
 }

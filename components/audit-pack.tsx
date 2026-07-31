@@ -59,7 +59,7 @@ export default function AuditPack({ companyName }: { companyName?: string }) {
 
     if (error) {
         return (
-            <div className="rounded-xl border border-[rgba(255,107,107,0.3)] bg-[rgba(255,107,107,0.08)] text-[#ff6b6b] px-4 py-3 text-sm flex items-center gap-2">
+            <div className="rounded-xl border border-[var(--danger-line)] bg-[var(--danger-soft)] text-[var(--danger)] px-4 py-3 text-sm flex items-center gap-2">
                 <AlertCircle size={15} /> {error}
             </div>
         );
@@ -74,7 +74,7 @@ export default function AuditPack({ companyName }: { companyName?: string }) {
     if (records.length === 0) {
         return (
             <div className="card p-12 text-center">
-                <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[rgba(47,230,168,0.1)] text-[var(--accent)] mb-4"><FileText size={20} /></div>
+                <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)] mb-4"><FileText size={20} /></div>
                 <div className="font-display text-xl font-semibold">Nothing to export yet</div>
                 <p className="text-[var(--text-dim)] text-sm mt-2 max-w-md mx-auto">
                     Once a payroll is confirmed, every payment appears here as an audit-ready record — tax treatment, FX rate and on-chain proof included.
@@ -243,7 +243,7 @@ function Pill({ label, active, onClick }: { label: string; active: boolean; onCl
     return (
         <button onClick={onClick}
             className={`text-[11px] px-2.5 py-1 rounded-lg border transition ${active
-                ? "border-[var(--accent)] bg-[rgba(47,230,168,0.08)] text-[var(--accent)]"
+                ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
                 : "border-[var(--border-strong)] text-[var(--text-dim)] hover:text-[var(--text)]"}`}>
             {label}
         </button>

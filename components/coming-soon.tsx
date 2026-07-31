@@ -12,7 +12,7 @@ export default function ComingSoon({
             </div>
 
             <div className="fade-up delay-1 card mt-10 p-10 text-center">
-                <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[rgba(47,230,168,0.1)] text-[var(--accent)] mb-4">
+                <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)] mb-4">
                     <Sparkles size={20} />
                 </div>
                 <div className="font-display text-xl font-semibold">Coming next</div>

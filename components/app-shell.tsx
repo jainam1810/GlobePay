@@ -31,7 +31,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <aside className="hidden md:flex w-[252px] shrink-0 flex-col justify-between border-r border-[var(--border)] px-4 py-6">
                 <div>
                     <Link href="/" className="flex items-center gap-2.5 px-2 mb-9">
-                        <div className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--accent)] text-[#04130d] font-display font-bold text-lg shadow-[0_0_24px_var(--accent-glow)]">G</div>
+                        <div className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--accent)] text-[var(--accent-ink)] font-display font-bold text-lg shadow-[0_0_24px_var(--accent-glow)]">G</div>
                         <span className="font-display text-xl font-semibold tracking-tight">GlobePay</span>
                     </Link>
                     <nav className="flex flex-col gap-1">
