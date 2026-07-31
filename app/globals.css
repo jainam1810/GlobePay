@@ -474,6 +474,45 @@ body::after {
     display: none !important;
   }
 
+  /* Paper is wider than a laptop viewport, so bring back the columns the screen
+     folds away — Tailwind's responsive `hidden` is keyed to viewport width and
+     doesn't know about print. */
+  .audit-doc table .hidden {
+    display: table-cell !important;
+  }
+
+  /* …which makes the wallet a real column, so the copy tucked under the name is
+     now a duplicate. Drop it rather than print the address twice. */
+  .audit-wallet {
+    display: none !important;
+  }
+
+  /* Addresses and hashes are the one thing that must be transcribable, so let
+     them wrap rather than truncate. */
+  .audit-doc table {
+    table-layout: auto;
+  }
+
+  .audit-doc td,
+  .audit-doc th {
+    padding: 6pt 5pt;
+    vertical-align: top;
+  }
+
+  .audit-doc .truncate,
+  .audit-doc .whitespace-nowrap {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    word-break: break-all;
+  }
+
+  /* Zebra striping does the work the hover state does on screen: it stops the
+     eye sliding between rows across a wide sheet. */
+  .audit-doc tbody tr:nth-child(even) {
+    background: #fafafc !important;
+  }
+
   /* Links print as text; the hash is already spelled out in full. */
   a {
     text-decoration: none !important;
