@@ -49,7 +49,7 @@ export default function TaxLedger() {
             )}
 
             {error && (
-                <div className="fade-up mt-4 rounded-xl border border-[rgba(255,107,107,0.3)] bg-[rgba(255,107,107,0.08)] text-[#ff6b6b] px-4 py-3 text-sm flex items-center gap-2">
+                <div className="fade-up mt-4 rounded-xl border border-[var(--danger-line)] bg-[var(--danger-soft)] text-[var(--danger)] px-4 py-3 text-sm flex items-center gap-2">
                     <AlertCircle size={15} /> {error}
                 </div>
             )}
@@ -62,7 +62,7 @@ export default function TaxLedger() {
 
             {records && records.length === 0 && (
                 <div className="fade-up mt-4 card p-12 text-center">
-                    <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[rgba(47,230,168,0.1)] text-[var(--accent)] mb-4">
+                    <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)] mb-4">
                         <Scale size={20} />
                     </div>
                     <div className="font-display text-xl font-semibold">Ledger is empty</div>
@@ -109,7 +109,7 @@ function LedgerRow({ r }: { r: SavedRecord }) {
     return (
         <div className="card overflow-hidden">
             <div className="flex items-start gap-4 p-5">
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[rgba(47,230,168,0.08)] border border-[rgba(47,230,168,0.2)] text-[var(--accent)]">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--accent-soft)] border border-[var(--accent-line)] text-[var(--accent)]">
                     <Scale size={17} />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -120,7 +120,7 @@ function LedgerRow({ r }: { r: SavedRecord }) {
                         {crossBorder && <Tag color="accent">Cross-border</Tag>}
                         {r.tx_hash && (
                             <a href={`https://sepolia.basescan.org/tx/${r.tx_hash}`} target="_blank" rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider text-[#04130d] bg-[var(--accent)] border border-[var(--accent)] rounded px-1.5 py-0.5 font-semibold hover:opacity-90 transition">
+                                className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider text-[var(--accent-ink)] bg-[var(--accent)] border border-[var(--accent)] rounded px-1.5 py-0.5 font-semibold hover:opacity-90 transition">
                                 <CheckCircle2 size={10} /> Paid <ExternalLink size={9} />
                             </a>
                         )}
@@ -153,7 +153,7 @@ function LedgerRow({ r }: { r: SavedRecord }) {
                                 <span className="text-[var(--text-faint)]">→</span>
                                 <span>{r.tax_country ? flagFor(r.tax_country) : "🌐"}</span>
                                 <span className="text-[var(--text-dim)]">{r.tax_country ?? "Freelancer"}</span>
-                                <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--accent)] border border-[rgba(47,230,168,0.25)] bg-[rgba(47,230,168,0.06)] rounded px-1.5 py-0.5 ml-1">cross-border</span>
+                                <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--accent)] border border-[var(--accent-line)] bg-[var(--accent-soft)] rounded px-1.5 py-0.5 ml-1">cross-border</span>
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
                                 <Metric label="Paid in full (no withholding)" value={`${fmt(r.amount)} ${r.currency}`} tone="accent" emphasis />
@@ -171,7 +171,7 @@ function LedgerRow({ r }: { r: SavedRecord }) {
                             <div className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--text-dim)]">
                                 <span className="text-[var(--text-faint)] uppercase tracking-wider">{rule.taxIdName}</span>
                                 <span>{r.contractor_tax_id}</span>
-                                {idValid ? <CheckCircle2 size={12} className="text-[var(--accent)]" /> : <AlertCircle size={12} className="text-[#f5b14c]" />}
+                                {idValid ? <CheckCircle2 size={12} className="text-[var(--accent)]" /> : <AlertCircle size={12} className="text-[var(--warn)]" />}
                             </div>
                         ) : <span />}
                         {rule && hasTax && <div className="text-[10px] font-mono text-[var(--text-faint)]">{r.tax_country} · {rule.source}</div>}
@@ -183,7 +183,7 @@ function LedgerRow({ r }: { r: SavedRecord }) {
 }
 
 function Metric({ label, value, tone = "default", emphasis }: { label: string; value: string; tone?: "default" | "accent" | "amber"; emphasis?: boolean }) {
-    const valueColor = tone === "accent" ? "text-[var(--accent)]" : tone === "amber" ? "text-[#f5b14c]" : "text-[var(--text)]";
+    const valueColor = tone === "accent" ? "text-[var(--accent)]" : tone === "amber" ? "text-[var(--warn)]" : "text-[var(--text)]";
     return (
         <div>
             <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-faint)] mb-1">{label}</div>
@@ -194,9 +194,9 @@ function Metric({ label, value, tone = "default", emphasis }: { label: string; v
 
 function Tag({ children, color }: { children: React.ReactNode; color: "accent" | "amber" | "neutral" }) {
     const cls = color === "accent"
-        ? "text-[var(--accent)] bg-[rgba(47,230,168,0.07)] border-[rgba(47,230,168,0.22)]"
+        ? "text-[var(--accent)] bg-[var(--accent-soft)] border-[var(--accent-line)]"
         : color === "amber"
-            ? "text-[#f5b14c] bg-[rgba(245,177,76,0.07)] border-[rgba(245,177,76,0.22)]"
+            ? "text-[var(--warn)] bg-[var(--warn-soft)] border-[var(--warn-line)]"
             : "text-[var(--text-dim)] border-[var(--border-strong)]";
     return <span className={`text-[9px] font-mono uppercase tracking-wider border rounded px-1.5 py-0.5 ${cls}`}>{children}</span>;
 }

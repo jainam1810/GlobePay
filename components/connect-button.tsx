@@ -40,7 +40,7 @@ export default function ConnectButton() {
                 <button
                     onClick={() => usable[0] && connect({ connector: usable[0] })}
                     disabled={isPending || usable.length === 0}
-                    className="rounded-full bg-(--accent) text-[#04130d] px-4 py-2 text-sm font-semibold hover:brightness-105 transition disabled:opacity-60"
+                    className="rounded-full bg-(--accent) text-[var(--accent-ink)] px-4 py-2 text-sm font-semibold hover:brightness-105 transition disabled:opacity-60"
                 >
                     {isPending ? "Connecting…" : "Connect Wallet"}
                 </button>
@@ -51,7 +51,7 @@ export default function ConnectButton() {
                 <button
                     onClick={() => setOpen(!open)}
                     disabled={isPending}
-                    className="rounded-full bg-(--accent) text-[#04130d] px-4 py-2 text-sm font-semibold hover:brightness-105 transition disabled:opacity-60"
+                    className="rounded-full bg-(--accent) text-[var(--accent-ink)] px-4 py-2 text-sm font-semibold hover:brightness-105 transition disabled:opacity-60"
                 >
                     {isPending ? "Connecting…" : "Connect Wallet"}
                 </button>
@@ -80,7 +80,7 @@ export default function ConnectButton() {
         return (
             <button
                 onClick={() => switchChain({ chainId: baseSepolia.id })}
-                className="rounded-full border border-[rgba(245,177,76,0.4)] bg-[rgba(245,177,76,0.1)] text-[#f5b14c] px-4 py-2 text-sm font-medium hover:bg-[rgba(245,177,76,0.16)] transition"
+                className="rounded-full border border-[var(--warn-line)] bg-[var(--warn-soft)] text-[var(--warn)] px-4 py-2 text-sm font-medium hover:bg-[var(--warn-soft)] transition"
             >
                 Switch to Base Sepolia
             </button>

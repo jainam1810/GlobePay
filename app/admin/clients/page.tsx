@@ -32,7 +32,7 @@ export default function ClientsPage() {
             </div>
 
             {error && (
-                <div className="fade-up mt-6 rounded-xl border border-[rgba(255,107,107,0.3)] bg-[rgba(255,107,107,0.08)] text-[#ff6b6b] px-4 py-3 text-sm flex items-center gap-2">
+                <div className="fade-up mt-6 rounded-xl border border-[var(--danger-line)] bg-[var(--danger-soft)] text-[var(--danger)] px-4 py-3 text-sm flex items-center gap-2">
                     <AlertCircle size={15} /> {error}
                 </div>
             )}
@@ -50,7 +50,7 @@ export default function ClientsPage() {
                     {clients.map((c) => (
                         <Link key={c.id} href={`/admin/clients/${c.id}`} className="card p-5 hover:bg-[var(--surface-2)] transition-colors">
                             <div className="flex items-center gap-3">
-                                <div className="grid h-10 w-10 place-items-center rounded-xl bg-[rgba(47,230,168,0.08)] border border-[rgba(47,230,168,0.2)] text-lg">
+                                <div className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--accent-soft)] border border-[var(--accent-line)] text-lg">
                                     {flagFor(c.home_country)}
                                 </div>
                                 <div className="min-w-0">
@@ -59,7 +59,7 @@ export default function ClientsPage() {
                                 </div>
                             </div>
                             <div className="flex items-center gap-3 mt-4 text-[11px] font-mono text-[var(--text-faint)]">
-                                {c.wallet_address ? <span>{truncate(c.wallet_address)}</span> : <span className="text-[#f5b14c]">no wallet on file</span>}
+                                {c.wallet_address ? <span>{truncate(c.wallet_address)}</span> : <span className="text-[var(--warn)]">no wallet on file</span>}
                                 {c.contact_email && <><span className="opacity-40">·</span><span className="truncate">{c.contact_email}</span></>}
                             </div>
                         </Link>
@@ -69,7 +69,7 @@ export default function ClientsPage() {
 
             {clients && clients.length === 0 && !showForm && (
                 <div className="fade-up mt-8 card p-12 text-center">
-                    <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[rgba(47,230,168,0.1)] text-[var(--accent)] mb-4"><Building2 size={20} /></div>
+                    <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)] mb-4"><Building2 size={20} /></div>
                     <div className="font-display text-xl font-semibold">No clients yet</div>
                     <p className="text-[var(--text-dim)] text-sm mt-2">Add the first company you&rsquo;ll run payroll for.</p>
                     <button className="btn-primary mt-6 inline-flex" onClick={() => setShowForm(true)}><Plus size={16} /> New client</button>
@@ -120,7 +120,7 @@ function NewClientForm({ onCreated }: { onCreated: () => void }) {
                 <label className="block text-xs text-[var(--text-dim)] mb-1.5">Contact email</label>
                 <input type="email" className={input} value={form.contact_email} onChange={(e) => setForm({ ...form, contact_email: e.target.value })} placeholder="billing@acme.com" />
             </div>
-            {err && <div className="md:col-span-2 text-xs text-[#ff6b6b] bg-[rgba(255,107,107,0.08)] border border-[rgba(255,107,107,0.25)] rounded-lg px-3 py-2">{err}</div>}
+            {err && <div className="md:col-span-2 text-xs text-[var(--danger)] bg-[var(--danger-soft)] border border-[var(--danger-line)] rounded-lg px-3 py-2">{err}</div>}
             <div className="md:col-span-2">
                 <button type="submit" disabled={busy} className="btn-primary disabled:opacity-50">
                     {busy ? <><Loader2 size={15} className="animate-spin" /> Creating…</> : "Create client"}

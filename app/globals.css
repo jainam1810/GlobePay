@@ -1,25 +1,59 @@
-@import url('https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&f[]=satoshi@300,400,500,700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
+/* One grotesque throughout — display and body are the same family at different
+   weights and tracking, which reads more like a product and less like a deck. */
 @theme {
-  --font-display: "Clash Display", sans-serif;
-  --font-sans: "Satoshi", sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  --font-display: "Inter", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
 :root {
-  --bg: #0a0b0e;
-  --surface: #14171d;
-  --surface-2: #1a1e26;
-  --border: rgba(255, 255, 255, 0.07);
-  --border-strong: rgba(255, 255, 255, 0.13);
-  --text: #ECEEF1;
-  --text-dim: #a4abb6;
-  --text-faint: #6b7280;
-  --accent: #2fe6a8;
-  --accent-glow: rgba(47, 230, 168, 0.22);
-  --radius: 16px;
+  --bg: #020112;
+  --surface: #0F0F19;
+  --surface-2: #161620;
+  --border: #20202C;
+  --border-strong: #2C2C3B;
+
+  --text: #FFFFFF;
+  --text-dim: #A1A1B5;
+  --text-faint: #6C6C82;
+
+  /* Indigo primary. --accent is kept as the name because 150+ call sites already
+     use it; changing the value here re-themes all of them at once. */
+  --accent: #4C50EA;
+  --accent-ink: #FFFFFF;
+  /* text that sits ON the accent */
+  --accent-soft: rgba(76, 80, 234, 0.10);
+  --accent-line: rgba(76, 80, 234, 0.28);
+  --accent-glow: rgba(36, 70, 246, 0.30);
+  --electric: #2446F6;
+  --glow-mid: #343E6D;
+  --glow-out: #5565A9;
+
+  /* Semantic states. Every hardcoded rgba() in the app was folded into these so
+     the palette lives in exactly one place. */
+  --ok: #66D555;
+  --ok-soft: rgba(102, 213, 85, 0.10);
+  --ok-line: rgba(102, 213, 85, 0.28);
+  --warn: #EFBE54;
+  --warn-soft: rgba(239, 190, 84, 0.10);
+  --warn-line: rgba(239, 190, 84, 0.28);
+  --danger: #E25B5F;
+  --danger-soft: rgba(226, 91, 95, 0.10);
+  --danger-line: rgba(226, 91, 95, 0.30);
+
+  /* Light surfaces, used by the dashboard mockup on the marketing page. */
+  --l-bg: #F1F5F9;
+  --l-card: #FFFFFF;
+  --l-border: #E5E5ED;
+
+  --radius: 12px;
+
+  /* Motion. One curve and one duration so reveals feel like one system. */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --reveal-duration: 1.4s;
 }
 
 * {
@@ -48,8 +82,8 @@ body::before {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(820px 520px at 88% -8%, rgba(47, 230, 168, 0.10), transparent 68%),
-    radial-gradient(620px 420px at 6% 108%, rgba(47, 230, 168, 0.045), transparent 70%);
+    radial-gradient(820px 520px at 88% -8%, rgba(36, 70, 246, 0.13), transparent 68%),
+    radial-gradient(620px 420px at 6% 108%, rgba(76, 80, 234, 0.07), transparent 70%);
 }
 
 body::after {
@@ -65,7 +99,7 @@ body::after {
 
 ::selection {
   background: var(--accent);
-  color: #04130d;
+  color: var(--accent-ink);
 }
 
 ::-webkit-scrollbar {
@@ -74,13 +108,27 @@ body::after {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #20242c;
+  background: var(--border-strong);
   border-radius: 8px;
   border: 2px solid var(--bg);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #2a2f39;
+  background: #3a3a4d;
+}
+
+/* Keyboard focus must stay visible everywhere — it's the one affordance a
+   mouse user never sees and a keyboard user cannot work without. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Money and addresses line up column-to-column only with tabular figures. */
+.font-mono,
+[class*="font-mono"] {
+  font-variant-numeric: tabular-nums;
 }
 
 @layer components {
@@ -154,7 +202,7 @@ body::after {
     align-items: center;
     gap: 0.6rem;
     background: var(--accent);
-    color: #04130d;
+    color: var(--accent-ink);
     font-weight: 600;
     font-size: 0.95rem;
     padding: 0.85rem 1.35rem;
@@ -176,9 +224,9 @@ body::after {
   }
 
   .notice {
-    border: 1px solid rgba(47, 230, 168, 0.30);
-    background: rgba(47, 230, 168, 0.08);
-    color: var(--accent);
+    border: 1px solid var(--accent-line);
+    background: var(--accent-soft);
+    color: var(--text);
   }
 
   .badge-testnet {
@@ -191,16 +239,38 @@ body::after {
     text-transform: uppercase;
     padding: 0.18rem 0.5rem;
     border-radius: 6px;
-    color: var(--accent);
-    background: rgba(47, 230, 168, 0.08);
-    border: 1px solid rgba(47, 230, 168, 0.22);
+    color: var(--text-dim);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+  }
+
+  /* Status is a dot beside a word, not a filled badge. Badges shout; a payroll
+     screen has a lot of them and they'd fight the numbers for attention. */
+  .dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    flex: none;
+  }
+
+  .dot-ok {
+    background: var(--ok);
+  }
+
+  .dot-pending {
+    background: var(--warn);
+  }
+
+  .dot-failed {
+    background: var(--danger);
   }
 }
 
 @keyframes fadeUp {
   from {
     opacity: 0;
-    transform: translateY(14px);
+    transform: translateY(32px);
   }
 
   to {
@@ -209,21 +279,102 @@ body::after {
   }
 }
 
+/* One reveal, one curve. Siblings stagger by 80ms and then sit completely
+   still — nothing on this app idles or loops after it has arrived. */
 .fade-up {
   opacity: 0;
-  animation: fadeUp .55s cubic-bezier(.2, .7, .2, 1) forwards;
+  animation: fadeUp var(--reveal-duration) var(--ease-out-expo) forwards;
 }
 
 .delay-1 {
-  animation-delay: .07s;
+  animation-delay: 80ms;
 }
 
 .delay-2 {
-  animation-delay: .14s;
+  animation-delay: 160ms;
 }
 
 .delay-3 {
-  animation-delay: .21s;
+  animation-delay: 240ms;
+}
+
+.delay-4 {
+  animation-delay: 320ms;
+}
+
+.delay-5 {
+  animation-delay: 400ms;
+}
+
+/* The only thing on the page that moves continuously: two radial gradients
+   behind the hero, drifting ~4% over 20s. Everything else is static once it
+   has arrived. */
+@keyframes heroDriftA {
+
+  0%,
+  100% {
+    transform: translate3d(-2%, -1%, 0);
+  }
+
+  50% {
+    transform: translate3d(2%, 3%, 0);
+  }
+}
+
+@keyframes heroDriftB {
+
+  0%,
+  100% {
+    transform: translate3d(2%, 2%, 0);
+  }
+
+  50% {
+    transform: translate3d(-3%, -2%, 0);
+  }
+}
+
+.hero-glow-a,
+.hero-glow-b {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(90px);
+  pointer-events: none;
+  will-change: transform;
+}
+
+.hero-glow-a {
+  background: radial-gradient(circle, var(--electric) 0%, var(--glow-mid) 45%, transparent 70%);
+  opacity: 0.42;
+  animation: heroDriftA 20s ease-in-out infinite;
+}
+
+.hero-glow-b {
+  background: radial-gradient(circle, var(--accent) 0%, var(--glow-out) 50%, transparent 72%);
+  opacity: 0.26;
+  animation: heroDriftB 20s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .hero-glow-a,
+  .hero-glow-b {
+    animation: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .fade-up,
+  .reveal {
+    animation: none !important;
+    transition: opacity 200ms linear !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+
+  html {
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ---------------------------------------------------------------------------

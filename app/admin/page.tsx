@@ -55,7 +55,7 @@ export default async function AdminOverview() {
                                 <div className="text-xs text-[var(--text-dim)]">{client.home_country}</div>
                             </div>
                             {pending > 0 && (
-                                <span className="text-[9px] font-mono uppercase tracking-wider text-[#f5b14c] bg-[rgba(245,177,76,0.07)] border border-[rgba(245,177,76,0.22)] rounded px-1.5 py-0.5">
+                                <span className="text-[9px] font-mono uppercase tracking-wider text-[var(--warn)] bg-[var(--warn-soft)] border border-[var(--warn-line)] rounded px-1.5 py-0.5">
                                     {pending} awaiting confirm
                                 </span>
                             )}
@@ -88,7 +88,7 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
     return (
         <div className="card p-5">
             <div className="text-[var(--text-dim)] text-xs uppercase tracking-wide">{label}</div>
-            <div className={`font-mono text-2xl font-semibold mt-2 ${accent ? "text-[#f5b14c]" : ""}`}>{value}</div>
+            <div className={`font-mono text-2xl font-semibold mt-2 ${accent ? "text-[var(--warn)]" : ""}`}>{value}</div>
         </div>
     );
 }

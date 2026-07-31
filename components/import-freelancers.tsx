@@ -82,20 +82,20 @@ export default function ImportFreelancers({ clientId, onImported }: { clientId: 
                     <Paperclip size={13} /> {file ? file.name : "Attach file (CSV, PDF, image)"}
                     <input type="file" className="hidden" accept=".csv,.txt,.pdf,image/*" onChange={(e) => e.target.files?.[0] && pickFile(e.target.files[0])} />
                 </label>
-                {file && <button onClick={() => setFile(null)} className="text-[var(--text-faint)] hover:text-[#ff6b6b]"><X size={13} /></button>}
+                {file && <button onClick={() => setFile(null)} className="text-[var(--text-faint)] hover:text-[var(--danger)]"><X size={13} /></button>}
                 <div className="flex-1" />
                 <button onClick={extract} disabled={busy !== null || (!text.trim() && !file)} className="btn-primary text-sm disabled:opacity-50">
                     {busy === "extract" ? <><Loader2 size={14} className="animate-spin" /> Reading…</> : <><Sparkles size={14} /> Extract with AI</>}
                 </button>
             </div>
 
-            {err && <div className="mt-3 text-xs text-[#ff6b6b] bg-[rgba(255,107,107,0.08)] border border-[rgba(255,107,107,0.25)] rounded-lg px-3 py-2 flex items-center gap-2"><AlertCircle size={13} /> {err}</div>}
+            {err && <div className="mt-3 text-xs text-[var(--danger)] bg-[var(--danger-soft)] border border-[var(--danger-line)] rounded-lg px-3 py-2 flex items-center gap-2"><AlertCircle size={13} /> {err}</div>}
             {saved && <div className="mt-3 text-xs text-[var(--text-dim)] bg-[var(--surface-2)] border border-[var(--border-strong)] rounded-lg px-3 py-2">{saved}</div>}
 
             {rows && (
                 <div className="mt-4">
                     {aiNotes && (
-                        <div className="mb-3 flex items-start gap-2 text-xs text-[#f5b14c] bg-[rgba(245,177,76,0.06)] border border-[rgba(245,177,76,0.18)] rounded-lg px-3 py-2">
+                        <div className="mb-3 flex items-start gap-2 text-xs text-[var(--warn)] bg-[var(--warn-soft)] border border-[var(--warn-line)] rounded-lg px-3 py-2">
                             <AlertCircle size={13} className="mt-0.5 shrink-0" /> <span>AI notes: {aiNotes}</span>
                         </div>
                     )}
@@ -104,12 +104,12 @@ export default function ImportFreelancers({ clientId, onImported }: { clientId: 
                             <div key={i} className={`flex items-center gap-3 px-4 py-2.5 text-sm ${r.valid ? "" : "opacity-70"}`}>
                                 {r.valid
                                     ? <CheckCircle2 size={14} className="text-[var(--accent)] shrink-0" />
-                                    : <AlertCircle size={14} className="text-[#ff6b6b] shrink-0" />}
+                                    : <AlertCircle size={14} className="text-[var(--danger)] shrink-0" />}
                                 <div className="min-w-0 flex-1">
                                     <span className="font-medium">{r.name || "?"}</span>
                                     <span className="ml-2 text-xs text-[var(--text-dim)]">{flagFor(r.country)} {r.country || "?"}{r.role ? ` · ${r.role}` : ""}</span>
-                                    {!r.valid && <div className="text-[11px] text-[#ff6b6b] mt-0.5">{r.problems.join(" · ")}</div>}
-                                    {r.notes && <div className="text-[11px] text-[#f5b14c] mt-0.5">{r.notes}</div>}
+                                    {!r.valid && <div className="text-[11px] text-[var(--danger)] mt-0.5">{r.problems.join(" · ")}</div>}
+                                    {r.notes && <div className="text-[11px] text-[var(--warn)] mt-0.5">{r.notes}</div>}
                                 </div>
                                 <span className="font-mono text-[10px] text-[var(--text-faint)] hidden md:inline">{r.wallet ? truncate(r.wallet) : "no wallet"}</span>
                                 <span className="font-mono text-sm font-semibold w-20 text-right">{r.monthly_amount > 0 ? formatUSD(r.monthly_amount) : "—"}</span>

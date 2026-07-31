@@ -65,7 +65,7 @@ export default function PaymentHistory({ allowImport = false }: { allowImport?: 
             )}
             {importNote && <div className="fade-up mt-4 rounded-xl border border-[var(--border-strong)] bg-[var(--surface-2)] text-[var(--text-dim)] px-4 py-3 text-sm">{importNote}</div>}
             {error && (
-                <div className="fade-up mt-4 rounded-xl border border-[rgba(255,107,107,0.3)] bg-[rgba(255,107,107,0.08)] text-[#ff6b6b] px-4 py-3 text-sm flex items-center gap-2">
+                <div className="fade-up mt-4 rounded-xl border border-[var(--danger-line)] bg-[var(--danger-soft)] text-[var(--danger)] px-4 py-3 text-sm flex items-center gap-2">
                     <AlertCircle size={15} /> {error}
                 </div>
             )}
@@ -78,7 +78,7 @@ export default function PaymentHistory({ allowImport = false }: { allowImport?: 
 
             {payments && payments.length === 0 && (
                 <div className="fade-up mt-4 card p-12 text-center">
-                    <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[rgba(47,230,168,0.1)] text-[var(--accent)] mb-4"><History size={20} /></div>
+                    <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)] mb-4"><History size={20} /></div>
                     <div className="font-display text-xl font-semibold">No payments yet</div>
                     <p className="text-[var(--text-dim)] text-sm mt-2 max-w-md mx-auto">Confirmed payrolls appear here automatically, each with a plain-language receipt.</p>
                 </div>
@@ -115,7 +115,7 @@ function FilterPill({ label, active, onClick }: { label: string; active: boolean
     return (
         <button onClick={onClick}
             className={`text-[11px] px-2.5 py-1 rounded-lg border transition ${active
-                ? "border-[var(--accent)] bg-[rgba(47,230,168,0.08)] text-[var(--accent)]"
+                ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
                 : "border-[var(--border-strong)] text-[var(--text-dim)] hover:text-[var(--text)]"}`}>
             {label}
         </button>
@@ -155,13 +155,13 @@ function PaymentRow({ p }: { p: SavedPayment }) {
     return (
         <div className="card overflow-hidden">
             <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-4 p-5 text-left hover:bg-[var(--surface-2)] transition-colors">
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[rgba(47,230,168,0.08)] border border-[rgba(47,230,168,0.2)] text-[var(--accent)]">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--accent-soft)] border border-[var(--accent-line)] text-[var(--accent)]">
                     <Send size={16} />
                 </div>
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-[15px]">Paid {headline}</span>
-                        <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider text-[var(--accent)] bg-[rgba(47,230,168,0.07)] border border-[rgba(47,230,168,0.22)] rounded px-1.5 py-0.5">
+                        <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider text-[var(--accent)] bg-[var(--accent-soft)] border border-[var(--accent-line)] rounded px-1.5 py-0.5">
                             <CheckCircle2 size={10} /> Confirmed
                         </span>
                         {p.client_name && (
@@ -241,7 +241,7 @@ function Receipt({ p, date, time }: { p: SavedPayment; date: string; time: strin
                     const intended = r.intended_amount;
                     return (
                         <div key={r.wallet} className="flex items-center gap-3 px-5 py-3">
-                            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full font-display font-semibold text-[11px] text-[#04130d]" style={{ background: `linear-gradient(135deg, ${g1}, ${g2})` }}>{initials}</div>
+                            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full font-display font-semibold text-[11px] text-[var(--accent-ink)]" style={{ background: `linear-gradient(135deg, ${g1}, ${g2})` }}>{initials}</div>
                             <div className="min-w-0 flex-1">
                                 <div className="text-sm font-medium truncate">{display}{r.country && <span className="ml-1.5 text-sm">{flagFor(r.country)}</span>}</div>
                                 <div className="flex items-center gap-1.5">
