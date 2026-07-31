@@ -37,6 +37,11 @@
     "**/*.mts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    // contracts/ is a separate Hardhat project with its own package.json and
+    // tsconfig. Its deps (dotenv, hardhat) are installed under contracts/, not
+    // at the root, so type-checking it here fails on any machine that only
+    // installs root deps — e.g. Vercel.
+    "contracts"
   ]
 }

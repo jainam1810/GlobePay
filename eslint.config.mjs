@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Separate Hardhat project with its own toolchain; typechain-types is
+    // generated code. Not part of the Next.js app.
+    "contracts/**",
   ]),
 ]);
 
