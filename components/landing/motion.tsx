@@ -1,78 +1,19 @@
 "use client";
 // Motion for the marketing page, kept in one place so timings can't drift.
 //
-// Two behaviours, both of which stop completely once they've arrived:
-//   useSmoothScroll — eases the page toward the real scroll position (lerp .08)
-//   Reveal          — fades a block up 32px once, on first entry
+// Scroll itself is native. A lerp-based smooth scroll was tried and removed:
+// easing the content toward the real scroll position means it always trails the
+// wheel, which reads as lag rather than smoothness, and it overrides the
+// momentum, trackpad and keyboard behaviour the OS already gets right.
 //
-// Nothing loops, nothing idles. Movement is a transition between two resting
+// What's left is a single reveal that runs once per block and then stops. No
+// loops, no idle animation — movement is a transition between two resting
 // states, not decoration.
 import { useEffect, useRef, useState } from "react";
 
-const prefersReducedMotion = () =>
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
 /**
- * Native scroll still drives layout and the scrollbar; we only translate the
- * content toward the target so it arrives slightly behind the wheel. Falls back
- * to plain scrolling for reduced motion, touch, and small screens — on a phone
- * the offset fights momentum scrolling and feels broken rather than smooth.
- */
-export function useSmoothScroll(enabled = true) {
-    const ref = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const el = ref.current;
-        if (!el || !enabled || prefersReducedMotion()) return;
-        if (window.matchMedia("(hover: none), (max-width: 900px)").matches) return;
-
-        let current = window.scrollY;
-        let raf = 0;
-        let running = true;
-
-        const setBodyHeight = () => {
-            document.body.style.height = `${el.scrollHeight}px`;
-        };
-        setBodyHeight();
-
-        const ro = new ResizeObserver(setBodyHeight);
-        ro.observe(el);
-
-        el.style.position = "fixed";
-        el.style.inset = "0";
-        el.style.willChange = "transform";
-
-        const tick = () => {
-            if (!running) return;
-            const target = window.scrollY;
-            current += (target - current) * 0.08;
-            // Snap the last fraction of a pixel, otherwise it never settles and
-            // the compositor keeps a layer alive forever.
-            if (Math.abs(target - current) < 0.1) current = target;
-            el.style.transform = `translate3d(0, ${-current}px, 0)`;
-            raf = requestAnimationFrame(tick);
-        };
-        raf = requestAnimationFrame(tick);
-
-        return () => {
-            running = false;
-            cancelAnimationFrame(raf);
-            ro.disconnect();
-            document.body.style.height = "";
-            el.style.position = "";
-            el.style.inset = "";
-            el.style.transform = "";
-            el.style.willChange = "";
-        };
-    }, [enabled]);
-
-    return ref;
-}
-
-/**
- * Reveals its children once. `index` staggers siblings by 80ms — enough to read
- * as a sequence, short enough not to feel slow.
+ * Fades a block up 32px the first time it enters the viewport. `index` staggers
+ * siblings by 80ms — enough to read as a sequence, short enough not to feel slow.
  */
 export function Reveal({
     children,
