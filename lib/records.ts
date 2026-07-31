@@ -27,4 +27,7 @@ export type SavedRecord = {
     // Block timestamp of the linked payment — when the money actually moved.
     // Attached by the API; null when no payment row matches the tx hash.
     paid_at?: string | null;
+    // The address that actually received this payment, taken from the linked
+    // payment's recipient list. Null when it can't be matched unambiguously.
+    payee_wallet?: string | null;
 };

@@ -2,38 +2,40 @@
 // The audit pack. Two jobs that pull in opposite directions:
 //
 //   on screen  — find one payment among thousands
-//   on paper   — a complete, ordered record someone can rely on
+//   on paper    — a complete, ordered record someone can rely on
 //
-// So the page is a filterable table, and the printed output is whatever the
-// filters currently select, with the scope stated in the document itself. That
-// last part matters: a filtered table that doesn't say it's filtered reads as
-// the complete record, and exporting one as an audit document misrepresents it.
+// So the page is a filterable table, and the export is whatever the filters
+// currently select, with the scope stated in the document itself. That last part
+// matters: a filtered table that doesn't say it's filtered reads as the complete
+// record, and exporting one as an audit document misrepresents it.
+//
+// An audit pack belongs to one company, so GlobePay admins pick a client first
+// rather than scrolling a merged list of everyone's payments. With 100 clients a
+// dropdown is the wrong control; a searchable index is not.
 import { useEffect, useMemo, useState } from "react";
 import {
     Printer, AlertCircle, Loader2, FileText, Search, ChevronRight, X,
+    ArrowLeft, Sheet, Building2,
 } from "lucide-react";
 import type { SavedRecord } from "@/lib/records";
 import { getTaxRule } from "@/lib/tax-rules";
 import { flagFor } from "@/lib/contractor-types";
+import { toCsv, downloadCsv, exportName } from "@/lib/csv";
 
 const ALL = "__all__";
 type SortKey = "date_desc" | "date_asc" | "amount_desc" | "amount_asc" | "name_asc";
 
 const money = (n: number | null | undefined) =>
     Number(n ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
 const whenOf = (r: SavedRecord) => r.paid_at ?? r.invoice_date ?? r.created_at;
+const shortAddr = (a?: string | null) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "—");
 
 export default function AuditPack() {
     const [records, setRecords] = useState<SavedRecord[] | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    const [q, setQ] = useState("");
-    const [client, setClient] = useState(ALL);
-    const [country, setCountry] = useState(ALL);
-    const [treatment, setTreatment] = useState(ALL);
-    const [year, setYear] = useState(ALL);
-    const [sort, setSort] = useState<SortKey>("date_desc");
+    // null = the client index (admins only). A name = that client's pack.
+    const [openClient, setOpenClient] = useState<string | null>(null);
 
     useEffect(() => {
         fetch("/api/records")
@@ -42,56 +44,10 @@ export default function AuditPack() {
             .catch((e) => setError(e instanceof Error ? e.message : "Network error"));
     }, []);
 
-    // Memoised: `records ?? []` would be a fresh array on every render, which
-    // silently defeats every useMemo below — the filter and sort would re-run
-    // on each keystroke over the whole set.
     const all = useMemo(() => records ?? [], [records]);
-    const clientNames = useMemo(
-        () => [...new Set(all.map((r) => r.client_name).filter((n): n is string => !!n))].sort(), [all]);
-    const countries = useMemo(
-        () => [...new Set(all.map((r) => r.tax_country).filter((c): c is string => !!c))].sort(), [all]);
-    const years = useMemo(
-        () => [...new Set(all.map((r) => new Date(whenOf(r)).getFullYear()))].sort((a, b) => b - a), [all]);
-
-    const rows = useMemo(() => {
-        const needle = q.trim().toLowerCase();
-        const out = all.filter((r) => {
-            if (client !== ALL && r.client_name !== client) return false;
-            if (country !== ALL && r.tax_country !== country) return false;
-            if (treatment !== ALL && (r.tax_treatment ?? "") !== treatment) return false;
-            if (year !== ALL && String(new Date(whenOf(r)).getFullYear()) !== year) return false;
-            if (!needle) return true;
-            // Searchable by the things someone actually has to hand: a name, a
-            // tax ID from a letter, an invoice number, or a hash from a receipt.
-            return [r.payee_name, r.contractor_tax_id, r.invoice_number, r.tx_hash, r.tax_country, r.description]
-                .some((v) => v?.toLowerCase().includes(needle));
-        });
-        const by: Record<SortKey, (a: SavedRecord, b: SavedRecord) => number> = {
-            date_desc: (a, b) => +new Date(whenOf(b)) - +new Date(whenOf(a)),
-            date_asc: (a, b) => +new Date(whenOf(a)) - +new Date(whenOf(b)),
-            amount_desc: (a, b) => Number(b.amount) - Number(a.amount),
-            amount_asc: (a, b) => Number(a.amount) - Number(b.amount),
-            name_asc: (a, b) => (a.payee_name ?? "").localeCompare(b.payee_name ?? ""),
-        };
-        return [...out].sort(by[sort]);
-    }, [all, q, client, country, treatment, year, sort]);
-
-    const totals = useMemo(() => ({
-        gross: rows.reduce((s, r) => s + Number(r.amount || 0), 0),
-        withheld: rows.reduce((s, r) => s + Number(r.withheld_amount || 0), 0),
-        people: new Set(rows.map((r) => r.payee_name)).size,
-        countries: new Set(rows.map((r) => r.tax_country).filter(Boolean)).size,
-    }), [rows]);
-
-    const active = [
-        client !== ALL && { k: "client", label: client, clear: () => setClient(ALL) },
-        country !== ALL && { k: "country", label: country, clear: () => setCountry(ALL) },
-        treatment !== ALL && { k: "treatment", label: treatment === "cross_border" ? "Cross-border" : "Domestic", clear: () => setTreatment(ALL) },
-        year !== ALL && { k: "year", label: year, clear: () => setYear(ALL) },
-        q.trim() && { k: "q", label: `“${q.trim()}”`, clear: () => setQ("") },
-    ].filter(Boolean) as { k: string; label: string; clear: () => void }[];
-
-    const filtered = active.length > 0;
+    // The API only labels rows with a client name for admins, so this doubles as
+    // the role check: a client portal sees no names and goes straight to its pack.
+    const isAdmin = useMemo(() => all.some((r) => !!r.client_name), [all]);
 
     if (error) {
         return (
@@ -107,38 +63,219 @@ export default function AuditPack() {
             </div>
         );
     }
-    if (all.length === 0) {
-        return (
-            <div className="card p-12 text-center">
-                <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)] mb-4"><FileText size={20} /></div>
-                <div className="text-xl font-medium tracking-[-0.02em]">Nothing to export yet</div>
-                <p className="text-[var(--text-dim)] text-sm mt-2 max-w-md mx-auto">
-                    Confirm a payment run and every payment lands here — tax treatment, exchange rate and on-chain proof included.
-                </p>
+    if (all.length === 0) return <Empty />;
+
+    if (isAdmin && openClient === null) {
+        return <ClientIndex records={all} onOpen={setOpenClient} />;
+    }
+
+    return (
+        <Pack
+            records={isAdmin && openClient !== ALL ? all.filter((r) => r.client_name === openClient) : all}
+            scope={isAdmin ? (openClient === ALL ? "All clients" : openClient!) : undefined}
+            onBack={isAdmin ? () => setOpenClient(null) : undefined}
+        />
+    );
+}
+
+function Empty() {
+    return (
+        <div className="card p-12 text-center">
+            <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)] mb-4"><FileText size={20} /></div>
+            <div className="text-xl font-medium tracking-[-0.02em]">Nothing to export yet</div>
+            <p className="text-[var(--text-dim)] text-sm mt-2 max-w-md mx-auto">
+                Confirm a payment run and every payment lands here — tax treatment, exchange rate and on-chain proof included.
+            </p>
+        </div>
+    );
+}
+
+/* ── admin: pick a company first ─────────────────────────────────────────── */
+
+function ClientIndex({ records, onOpen }: { records: SavedRecord[]; onOpen: (c: string) => void }) {
+    const [q, setQ] = useState("");
+
+    const clients = useMemo(() => {
+        const m = new Map<string, { name: string; count: number; gross: number; last: string; countries: Set<string> }>();
+        for (const r of records) {
+            const name = r.client_name ?? "Unassigned";
+            const e = m.get(name) ?? { name, count: 0, gross: 0, last: whenOf(r), countries: new Set<string>() };
+            e.count++;
+            e.gross += Number(r.amount || 0);
+            if (+new Date(whenOf(r)) > +new Date(e.last)) e.last = whenOf(r);
+            if (r.tax_country) e.countries.add(r.tax_country);
+            m.set(name, e);
+        }
+        const needle = q.trim().toLowerCase();
+        return [...m.values()]
+            .filter((c) => !needle || c.name.toLowerCase().includes(needle))
+            .sort((a, b) => b.gross - a.gross);
+    }, [records, q]);
+
+    const totalGross = records.reduce((s, r) => s + Number(r.amount || 0), 0);
+
+    return (
+        <div>
+            <div className="card p-3 md:p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="relative flex-1 min-w-0">
+                        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]" />
+                        <input
+                            value={q} onChange={(e) => setQ(e.target.value)}
+                            placeholder="Search clients"
+                            aria-label="Search clients"
+                            className="w-full pl-9 pr-3 py-2 text-sm bg-[var(--surface-2)] border border-[var(--border)] rounded-lg focus:outline-none focus:border-[var(--accent)] transition placeholder:text-[var(--text-faint)]"
+                        />
+                    </div>
+                    <button onClick={() => onOpen(ALL)}
+                        className="text-sm px-4 py-2 rounded-lg border border-[var(--border-strong)] text-[var(--text-dim)] hover:text-[var(--text)] hover:border-[var(--accent-line)] transition whitespace-nowrap">
+                        Open combined pack
+                    </button>
+                </div>
             </div>
+
+            <div className="card mt-4 overflow-hidden">
+                <div className="flex items-baseline justify-between gap-4 px-5 py-4 border-b border-[var(--border)]">
+                    <h2 className="text-[15px] font-medium">Clients</h2>
+                    <span className="font-mono text-[12px] text-[var(--text-faint)]">
+                        {clients.length} · ${money(totalGross)} paid in total
+                    </span>
+                </div>
+
+                {clients.length === 0 ? (
+                    <div className="p-10 text-center text-sm text-[var(--text-dim)]">No client matches “{q}”.</div>
+                ) : (
+                    <div className="divide-y divide-[var(--border)]">
+                        {clients.map((c) => (
+                            <button key={c.name} onClick={() => onOpen(c.name)}
+                                className="w-full text-left flex items-center gap-4 px-5 py-3.5 hover:bg-[var(--surface-2)] transition-colors">
+                                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
+                                    <Building2 size={16} />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <div className="text-[14px] font-medium truncate">{c.name}</div>
+                                    <div className="text-[12px] text-[var(--text-faint)]">
+                                        {c.count} payment{c.count === 1 ? "" : "s"} · {c.countries.size} countr{c.countries.size === 1 ? "y" : "ies"}
+                                    </div>
+                                </div>
+                                <div className="hidden sm:block text-right">
+                                    <div className="font-mono text-[14px]">${money(c.gross)}</div>
+                                    <div className="text-[11px] text-[var(--text-faint)]">
+                                        last {new Date(c.last).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" })}
+                                    </div>
+                                </div>
+                                <ChevronRight size={16} className="shrink-0 text-[var(--text-faint)]" />
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/* ── one company's pack ──────────────────────────────────────────────────── */
+
+function Pack({ records, scope, onBack }: { records: SavedRecord[]; scope?: string; onBack?: () => void }) {
+    const [q, setQ] = useState("");
+    const [country, setCountry] = useState(ALL);
+    const [treatment, setTreatment] = useState(ALL);
+    const [year, setYear] = useState(ALL);
+    const [sort, setSort] = useState<SortKey>("date_desc");
+
+    const countries = useMemo(
+        () => [...new Set(records.map((r) => r.tax_country).filter((c): c is string => !!c))].sort(), [records]);
+    const years = useMemo(
+        () => [...new Set(records.map((r) => new Date(whenOf(r)).getFullYear()))].sort((a, b) => b - a), [records]);
+
+    const rows = useMemo(() => {
+        const needle = q.trim().toLowerCase();
+        const out = records.filter((r) => {
+            if (country !== ALL && r.tax_country !== country) return false;
+            if (treatment !== ALL && (r.tax_treatment ?? "") !== treatment) return false;
+            if (year !== ALL && String(new Date(whenOf(r)).getFullYear()) !== year) return false;
+            if (!needle) return true;
+            // Searchable by whatever someone has to hand: a name, a tax ID from a
+            // letter, an invoice number, a wallet or a hash off a receipt.
+            return [r.payee_name, r.contractor_tax_id, r.invoice_number, r.tx_hash, r.payee_wallet, r.tax_country, r.description]
+                .some((v) => v?.toLowerCase().includes(needle));
+        });
+        const by: Record<SortKey, (a: SavedRecord, b: SavedRecord) => number> = {
+            date_desc: (a, b) => +new Date(whenOf(b)) - +new Date(whenOf(a)),
+            date_asc: (a, b) => +new Date(whenOf(a)) - +new Date(whenOf(b)),
+            amount_desc: (a, b) => Number(b.amount) - Number(a.amount),
+            amount_asc: (a, b) => Number(a.amount) - Number(b.amount),
+            name_asc: (a, b) => (a.payee_name ?? "").localeCompare(b.payee_name ?? ""),
+        };
+        return [...out].sort(by[sort]);
+    }, [records, q, country, treatment, year, sort]);
+
+    const totals = useMemo(() => ({
+        gross: rows.reduce((s, r) => s + Number(r.amount || 0), 0),
+        withheld: rows.reduce((s, r) => s + Number(r.withheld_amount || 0), 0),
+        people: new Set(rows.map((r) => r.payee_name)).size,
+        countries: new Set(rows.map((r) => r.tax_country).filter(Boolean)).size,
+    }), [rows]);
+
+    const active = [
+        country !== ALL && { k: "country", label: country, clear: () => setCountry(ALL) },
+        treatment !== ALL && { k: "treatment", label: treatment === "cross_border" ? "Cross-border" : "Domestic", clear: () => setTreatment(ALL) },
+        year !== ALL && { k: "year", label: year, clear: () => setYear(ALL) },
+        q.trim() && { k: "q", label: `“${q.trim()}”`, clear: () => setQ("") },
+    ].filter(Boolean) as { k: string; label: string; clear: () => void }[];
+    const filtered = active.length > 0;
+    const clearAll = () => { setQ(""); setCountry(ALL); setTreatment(ALL); setYear(ALL); };
+
+    const title = scope ?? "Audit pack";
+
+    function exportCsv() {
+        // Every column, including the ones the screen folds away — a spreadsheet
+        // has no width limit and this is the file people reconcile against.
+        const csv = toCsv(
+            ["Date paid", "Contractor", "Country", "Wallet address", "Tax ID", "Treatment",
+                "Gross (USD)", "Withholding rate", "Withheld (USD)", "Net (USD)",
+                "Local amount", "Local currency", "FX rate", "FX pinned", "Invoice", "Description",
+                "Transaction hash", "Paid from"],
+            rows.map((r) => {
+                const hasTax = r.withholding_rate !== null && r.withheld_amount !== null;
+                return [
+                    new Date(whenOf(r)).toISOString().slice(0, 10),
+                    r.payee_name, r.tax_country, r.payee_wallet, r.contractor_tax_id,
+                    r.tax_treatment === "cross_border" ? "Cross-border" : hasTax ? "Domestic" : "",
+                    Number(r.amount ?? 0).toFixed(2),
+                    hasTax ? `${((r.withholding_rate ?? 0) * 100).toFixed(2)}%` : "",
+                    hasTax ? Number(r.withheld_amount ?? 0).toFixed(2) : "0.00",
+                    Number(hasTax ? r.net_amount ?? 0 : r.amount ?? 0).toFixed(2),
+                    r.local_amount !== null ? Number(r.local_amount).toFixed(2) : "",
+                    r.local_currency, r.fx_rate ?? "", r.fx_pinned_at ?? "",
+                    r.invoice_number, r.description, r.tx_hash, r.company_country,
+                ];
+            }),
         );
+        downloadCsv(exportName(title, "csv"), csv);
     }
 
     return (
         <div>
-            {/* ── toolbar: screen only, not part of the document ───────────── */}
+            {/* ── toolbar: screen only ─────────────────────────────────────── */}
             <div className="no-print card p-3 md:p-4">
+                {onBack && (
+                    <button onClick={onBack}
+                        className="inline-flex items-center gap-1.5 text-[13px] text-[var(--text-dim)] hover:text-[var(--text)] transition mb-3">
+                        <ArrowLeft size={14} /> All clients
+                    </button>
+                )}
                 <div className="flex flex-col lg:flex-row lg:items-center gap-3">
                     <div className="relative flex-1 min-w-0">
                         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]" />
                         <input
-                            value={q}
-                            onChange={(e) => setQ(e.target.value)}
-                            placeholder="Search name, tax ID, invoice number or transaction hash"
+                            value={q} onChange={(e) => setQ(e.target.value)}
+                            placeholder="Search name, tax ID, invoice, wallet or transaction hash"
                             aria-label="Search payments"
                             className="w-full pl-9 pr-3 py-2 text-sm bg-[var(--surface-2)] border border-[var(--border)] rounded-lg focus:outline-none focus:border-[var(--accent)] transition placeholder:text-[var(--text-faint)]"
                         />
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                        {clientNames.length > 1 && (
-                            <Select value={client} onChange={setClient} label="Client"
-                                options={[[ALL, "All clients"], ...clientNames.map((c) => [c, c] as [string, string])]} />
-                        )}
                         <Select value={year} onChange={setYear} label="Year"
                             options={[[ALL, "All years"], ...years.map((y) => [String(y), String(y)] as [string, string])]} />
                         <Select value={country} onChange={setCountry} label="Country"
@@ -147,8 +284,13 @@ export default function AuditPack() {
                             options={[[ALL, "All treatments"], ["domestic", "Domestic"], ["cross_border", "Cross-border"]]} />
                         <Select value={sort} onChange={(v) => setSort(v as SortKey)} label="Sort"
                             options={[["date_desc", "Newest first"], ["date_asc", "Oldest first"], ["amount_desc", "Largest first"], ["amount_asc", "Smallest first"], ["name_asc", "Name A–Z"]]} />
-                        <button onClick={() => window.print()} className="btn-primary text-sm py-2 px-4">
-                            <Printer size={15} /> Export PDF
+                        <button onClick={exportCsv} disabled={rows.length === 0}
+                            className="inline-flex items-center gap-2 text-sm px-3.5 py-2 rounded-lg border border-[var(--border-strong)] text-[var(--text-dim)] hover:text-[var(--text)] hover:border-[var(--accent-line)] transition disabled:opacity-40">
+                            <Sheet size={15} /> Excel
+                        </button>
+                        <button onClick={() => window.print()} disabled={rows.length === 0}
+                            className="btn-primary text-sm py-2 px-4 disabled:opacity-40">
+                            <Printer size={15} /> PDF
                         </button>
                     </div>
                 </div>
@@ -164,8 +306,7 @@ export default function AuditPack() {
                                 {f.label}<X size={11} />
                             </button>
                         ))}
-                        <button
-                            onClick={() => { setQ(""); setClient(ALL); setCountry(ALL); setTreatment(ALL); setYear(ALL); }}
+                        <button onClick={clearAll}
                             className="text-[12px] text-[var(--text-dim)] underline underline-offset-2 hover:text-[var(--text)] transition ml-1">
                             Clear all
                         </button>
@@ -179,13 +320,11 @@ export default function AuditPack() {
                     <div className="flex items-start justify-between gap-6 flex-wrap">
                         <div>
                             <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--accent)]">Audit pack</div>
-                            <h2 className="text-2xl font-medium tracking-[-0.02em] mt-1">
-                                {client !== ALL ? client : "All payments"}
-                            </h2>
+                            <h2 className="text-2xl font-medium tracking-[-0.02em] mt-1">{title}</h2>
                         </div>
                         <div className="text-right text-[11px] font-mono text-[var(--text-faint)] leading-relaxed">
                             <div>Generated {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</div>
-                            <div>{rows.length} of {all.length} payment{all.length === 1 ? "" : "s"}</div>
+                            <div>{rows.length} of {records.length} payment{records.length === 1 ? "" : "s"}</div>
                         </div>
                     </div>
 
@@ -195,17 +334,14 @@ export default function AuditPack() {
                         ? "border-[var(--warn-line)] bg-[var(--warn-soft)] text-[var(--warn)]"
                         : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-dim)]"}`}>
                         {filtered ? (
-                            <>
-                                <span className="font-medium">Partial record.</span>{" "}
-                                Showing {rows.length} of {all.length} payments, filtered by {active.map((f) => f.label).join(" · ")}.
-                            </>
+                            <><span className="font-medium">Partial record.</span>{" "}
+                                Showing {rows.length} of {records.length} payments, filtered by {active.map((f) => f.label).join(" · ")}.</>
                         ) : (
-                            <>Complete record — all {all.length} payment{all.length === 1 ? "" : "s"} on file, no filters applied.</>
+                            <>Complete record — all {records.length} payment{records.length === 1 ? "" : "s"} on file, no filters applied.</>
                         )}
                     </div>
                 </div>
 
-                {/* Totals reflect the filters, not the whole table. */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[var(--border)] border-b border-[var(--border)]">
                     <Stat label="Gross paid" value={`$${money(totals.gross)}`} accent />
                     <Stat label="Tax withheld" value={`$${money(totals.withheld)}`} />
@@ -217,8 +353,7 @@ export default function AuditPack() {
                     <div className="p-12 text-center">
                         <div className="text-[15px] font-medium">No payments match these filters</div>
                         <p className="text-[var(--text-dim)] text-sm mt-1.5">Try a different year or country, or clear the filters to see everything.</p>
-                        <button onClick={() => { setQ(""); setClient(ALL); setCountry(ALL); setTreatment(ALL); setYear(ALL); }}
-                            className="no-print mt-4 text-sm text-[var(--accent)] underline underline-offset-2">Clear all filters</button>
+                        <button onClick={clearAll} className="no-print mt-4 text-sm text-[var(--accent)] underline underline-offset-2">Clear all filters</button>
                     </div>
                 ) : (
                     <Table rows={rows} />
@@ -236,35 +371,35 @@ export default function AuditPack() {
 }
 
 /* ── table ───────────────────────────────────────────────────────────────── */
+// Column budget, widest first: the table must fit its container without
+// sideways scrolling, so secondary columns fold away as width runs out and the
+// drill-down carries them instead. Nothing is ever only available by scrolling.
 
 function Table({ rows }: { rows: SavedRecord[] }) {
     return (
-        <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] border-collapse text-left">
-                {/* Sticky so the column meaning survives a long scroll. */}
-                <thead className="audit-thead sticky top-0 z-10 bg-[var(--surface-2)]">
-                    <tr className="text-[11px] uppercase tracking-wider text-[var(--text-faint)]">
-                        <Th className="w-[104px]">Date</Th>
-                        <Th>Contractor</Th>
-                        <Th className="w-[132px]">Country</Th>
-                        <Th className="w-[124px]">Treatment</Th>
-                        <Th className="w-[112px] text-right">Gross</Th>
-                        <Th className="w-[112px] text-right">Withheld</Th>
-                        <Th className="w-[112px] text-right">Net</Th>
-                        <Th className="w-[128px]">Proof</Th>
-                        <Th className="w-[36px] no-print" />
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows.map((r) => <Row key={r.id} r={r} />)}
-                </tbody>
-            </table>
-        </div>
+        <table className="w-full table-fixed border-collapse text-left">
+            <thead className="audit-thead sticky top-0 z-10 bg-[var(--surface-2)]">
+                <tr className="text-[11px] uppercase tracking-wider text-[var(--text-faint)]">
+                    <Th className="w-[86px]">Date</Th>
+                    <Th>Contractor</Th>
+                    <Th className="hidden lg:table-cell w-[130px]">Wallet</Th>
+                    <Th className="hidden md:table-cell w-[112px]">Treatment</Th>
+                    <Th className="w-[96px] text-right">Gross</Th>
+                    <Th className="hidden xl:table-cell w-[96px] text-right">Withheld</Th>
+                    <Th className="w-[96px] text-right">Net</Th>
+                    <Th className="hidden sm:table-cell w-[104px]">Proof</Th>
+                    <Th className="w-[34px] no-print" />
+                </tr>
+            </thead>
+            <tbody>
+                {rows.map((r) => <Row key={r.id} r={r} />)}
+            </tbody>
+        </table>
     );
 }
 
 function Th({ children, className = "" }: { children?: React.ReactNode; className?: string }) {
-    return <th scope="col" className={`px-3 md:px-4 py-2.5 font-normal border-b border-[var(--border)] ${className}`}>{children}</th>;
+    return <th scope="col" className={`px-3 py-2.5 font-normal border-b border-[var(--border)] ${className}`}>{children}</th>;
 }
 
 function Row({ r }: { r: SavedRecord }) {
@@ -283,27 +418,33 @@ function Row({ r }: { r: SavedRecord }) {
                 </Td>
                 <Td>
                     <div className="text-[13px] font-medium truncate">{r.payee_name}</div>
-                    {r.contractor_tax_id && (
-                        <div className="font-mono text-[11px] text-[var(--text-faint)] truncate">{rule?.taxIdName} {r.contractor_tax_id}</div>
-                    )}
+                    <div className="text-[11px] text-[var(--text-faint)] truncate">
+                        <span className="mr-1">{flagFor(r.tax_country ?? "")}</span>{r.tax_country ?? "—"}
+                        {r.contractor_tax_id && <span className="font-mono"> · {r.contractor_tax_id}</span>}
+                    </div>
+                    {/* Wallet rides under the name below lg, and prints there too,
+                        so it is never lost when the column folds away. */}
+                    <div className="audit-wallet lg:hidden font-mono text-[11px] text-[var(--text-faint)] truncate">
+                        {shortAddr(r.payee_wallet)}
+                    </div>
                 </Td>
-                <Td className="text-[12px] text-[var(--text-dim)] whitespace-nowrap">
-                    <span className="mr-1.5">{flagFor(r.tax_country ?? "")}</span>{r.tax_country ?? "—"}
+                <Td className="hidden lg:table-cell font-mono text-[11px] text-[var(--text-dim)] truncate">
+                    {shortAddr(r.payee_wallet)}
                 </Td>
-                <Td className="text-[12px] text-[var(--text-dim)] whitespace-nowrap">
+                <Td className="hidden md:table-cell text-[12px] text-[var(--text-dim)] whitespace-nowrap">
                     <span className={`dot ${crossBorder ? "dot-ok" : hasTax ? "dot-pending" : "dot-failed"} mr-1.5`} />
                     {crossBorder ? "Cross-border" : hasTax ? "Domestic" : "—"}
                 </Td>
                 <Td className="font-mono text-[13px] text-right whitespace-nowrap">${money(r.amount)}</Td>
-                <Td className="font-mono text-[13px] text-right whitespace-nowrap text-[var(--text-dim)]">
+                <Td className="hidden xl:table-cell font-mono text-[13px] text-right whitespace-nowrap text-[var(--text-dim)]">
                     {hasTax ? `−$${money(r.withheld_amount)}` : "—"}
                 </Td>
                 <Td className="font-mono text-[13px] text-right whitespace-nowrap font-medium">${money(net)}</Td>
-                <Td className="whitespace-nowrap">
+                <Td className="hidden sm:table-cell whitespace-nowrap">
                     {r.tx_hash ? (
                         <a href={`https://sepolia.basescan.org/tx/${r.tx_hash}`} target="_blank" rel="noreferrer"
                             className="font-mono text-[11px] text-[var(--accent)] hover:underline underline-offset-2">
-                            {r.tx_hash.slice(0, 10)}…
+                            {r.tx_hash.slice(0, 8)}…
                         </a>
                     ) : <span className="text-[11px] text-[var(--text-faint)]">—</span>}
                 </Td>
@@ -322,6 +463,7 @@ function Row({ r }: { r: SavedRecord }) {
                 <tr className="audit-detail bg-[var(--surface-2)] border-b border-[var(--border)]">
                     <td colSpan={9} className="px-3 md:px-4 py-4">
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            <Detail label="Wallet paid" value={r.payee_wallet ?? "—"} mono breakAll />
                             <Detail label="Local value"
                                 value={r.local_amount !== null && r.local_currency ? `${money(r.local_amount)} ${r.local_currency}` : "—"}
                                 sub={r.fx_rate ? `rate ${Number(r.fx_rate).toFixed(4)}, pinned ${r.fx_pinned_at ?? "at pay time"}` : undefined} />
@@ -329,7 +471,6 @@ function Row({ r }: { r: SavedRecord }) {
                                 value={hasTax ? `${((r.withholding_rate ?? 0) * 100).toFixed(0)}% · $${money(r.withheld_amount)}` : "None"}
                                 sub={crossBorder ? "Payer outside the contractor's country" : rule?.withholdingLabel} />
                             <Detail label="Invoice" value={r.invoice_number || "—"} sub={r.description || undefined} />
-                            <Detail label="Paid from" value={r.company_country || "—"} sub={rule?.source} />
                         </div>
                         {r.tx_hash && (
                             <div className="mt-3 pt-3 border-t border-[var(--border)] font-mono text-[11px] text-[var(--text-faint)] break-all">
@@ -344,14 +485,16 @@ function Row({ r }: { r: SavedRecord }) {
 }
 
 function Td({ children, className = "" }: { children?: React.ReactNode; className?: string }) {
-    return <td className={`px-3 md:px-4 py-3 align-top ${className}`}>{children}</td>;
+    return <td className={`px-3 py-3 align-top ${className}`}>{children}</td>;
 }
 
-function Detail({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function Detail({ label, value, sub, mono, breakAll }: {
+    label: string; value: string; sub?: string; mono?: boolean; breakAll?: boolean;
+}) {
     return (
         <div>
             <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)] mb-1">{label}</div>
-            <div className="font-mono text-[12px] text-[var(--text)]">{value}</div>
+            <div className={`text-[12px] text-[var(--text)] ${mono ? "font-mono" : ""} ${breakAll ? "break-all" : ""}`}>{value}</div>
             {sub && <div className="text-[11px] text-[var(--text-faint)] mt-0.5 leading-snug">{sub}</div>}
         </div>
     );
@@ -371,12 +514,8 @@ function Select({ value, onChange, options, label }: {
     value: string; onChange: (v: string) => void; options: [string, string][]; label: string;
 }) {
     return (
-        <select
-            aria-label={label}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="text-[13px] px-2.5 py-2 rounded-lg bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-dim)] focus:outline-none focus:border-[var(--accent)] transition"
-        >
+        <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}
+            className="text-[13px] px-2.5 py-2 rounded-lg bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-dim)] focus:outline-none focus:border-[var(--accent)] transition">
             {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
     );
