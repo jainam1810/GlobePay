@@ -81,6 +81,18 @@ export default function PortalHome() {
         query: { enabled: !!address, refetchInterval: 5000 },
     });
 
+    // A Safe with threshold 1 executes on the spot and hands back a real on-chain
+    // hash; a higher threshold hands back a Safe tx hash that will never get a
+    // receipt because co-signers haven't acted yet. We can't tell which from the
+    // hash alone, so wait a bounded time and let the chain answer.
+    async function receiptOrNull(hash: `0x${string}`, ms = 25000) {
+        if (!publicClient) return null;
+        return Promise.race([
+            publicClient.waitForTransactionReceipt({ hash }).catch(() => null),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+        ]);
+    }
+
     async function confirmRun(run: PayrollRun) {
         if (!publicClient) return;
         setBusyRun(run.id); setError(null);
@@ -92,14 +104,18 @@ export default function PortalHome() {
                     address: USDC_ADDRESS, abi: erc20Abi, functionName: "approve",
                     args: [DISPERSE_ADDRESS, parseUnits(APPROVE_CAP, 6)],
                 });
-                // In a Safe the approval is itself queued for signatures. Queueing
-                // the payout now would guarantee a revert — the allowance won't
-                // exist when it executes. Stop here and let the signers act.
                 if (viaSafe) {
-                    setError("Step 1 of 2: the USDC authorisation is queued in your Safe. Once the other signers approve it, come back and propose the payroll itself.");
-                    return;
+                    // If the Safe still needs co-signers this never lands, and
+                    // queueing the payout now would guarantee a revert — the
+                    // allowance won't exist when it executes. Stop and let them sign.
+                    const approved = await receiptOrNull(approveHash);
+                    if (!approved) {
+                        setError("Step 1 of 2: the USDC authorisation is queued in your Safe. Once the remaining signers approve it, come back and confirm the payroll itself.");
+                        return;
+                    }
+                } else {
+                    await publicClient.waitForTransactionReceipt({ hash: approveHash });
                 }
-                await publicClient.waitForTransactionReceipt({ hash: approveHash });
                 await refetchAllowance();
             }
 
@@ -111,15 +127,19 @@ export default function PortalHome() {
                 args: [USDC_ADDRESS, recipients, amounts],
             });
 
-            // Multisig: the payroll is now queued in the Safe awaiting the other
-            // signers. There's no receipt to wait for and nothing to file yet —
-            // once the Safe executes, the payment is picked up from the chain.
             if (viaSafe) {
-                setProposedRun(run.id);
-                return;
+                // Only treat it as "queued" if it genuinely didn't execute. At
+                // threshold 1 the Safe settles immediately and we must file the
+                // receipt like any other payment, or the run stays pending
+                // forever and the client can pay a second time.
+                const settled = await receiptOrNull(hash);
+                if (!settled) {
+                    setProposedRun(run.id);
+                    return;
+                }
+            } else {
+                await publicClient.waitForTransactionReceipt({ hash });
             }
-
-            await publicClient.waitForTransactionReceipt({ hash });
 
             // Tell the server: it verifies the tx on-chain and files the receipt.
             const r = await fetch(`/api/payroll-runs/${run.id}`, {
