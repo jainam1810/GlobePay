@@ -1,9 +1,10 @@
 // Session refresh + coarse route protection. (Next.js renamed middleware.ts
 // to proxy.ts.) Fine-grained role checks live in the /admin and /portal
-// layouts — here we only keep the session cookie fresh and bounce
+// layouts - here we only keep the session cookie fresh and bounce
 // unauthenticated visitors to /login.
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { authCookieOptions } from "@/lib/supabase-cookies";
 
 export async function proxy(request: NextRequest) {
     let response = NextResponse.next({ request });
@@ -13,6 +14,7 @@ export async function proxy(request: NextRequest) {
     if (!url || !key) return response; // auth not configured yet — let pages explain
 
     const supabase = createServerClient(url, key, {
+        cookieOptions: authCookieOptions,
         cookies: {
             getAll() { return request.cookies.getAll(); },
             setAll(cookiesToSet) {

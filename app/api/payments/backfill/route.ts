@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { buildPaymentRow } from "@/lib/chain";
 import { DISPERSE_ADDRESS } from "@/lib/disperse";
+import { getSessionInfo } from "@/lib/auth";
 
 type EtherscanTx = { hash: string; to: string; isError: string; functionName?: string };
 
@@ -10,6 +11,12 @@ type EtherscanTx = { hash: string; to: string; isError: string; functionName?: s
 // we don't have yet. Idempotent — safe to run again.
 export async function POST() {
     try {
+        // Admin-only: this writes payment rows and burns the Basescan API quota,
+        // so it must not be callable by anonymous visitors.
+        const s = await getSessionInfo();
+        if (!s) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+        if (s.role !== "globepay_admin") return NextResponse.json({ error: "GlobePay admin only" }, { status: 403 });
+
         if (!DISPERSE_ADDRESS) return NextResponse.json({ error: "Disperse contract address not configured" }, { status: 500 });
 
         const key = process.env.ETHERSCAN_API_KEY || "";

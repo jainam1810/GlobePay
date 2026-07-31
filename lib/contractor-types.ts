@@ -11,6 +11,20 @@ export type DbContractor = {
     tax_id: string | null;
 };
 
+// What POST /api/contractors and PATCH /api/contractors/[id] accept off the
+// wire. Every field is optional here because the payload is untrusted — the
+// route's validate() is what decides which ones are actually required.
+export type ContractorInput = {
+    name?: string;
+    role?: string | null;
+    country?: string;
+    currency?: string;
+    wallet?: string;
+    monthly_amount?: number | null;
+    tax_id?: string | null;
+    client_id?: string | null;
+};
+
 export const SUPPORTED_COUNTRIES = ["Nigeria", "Argentina", "Philippines"] as const;
 
 export const truncate = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
@@ -27,6 +41,16 @@ export const COMPANY_COUNTRIES = [
     "United Kingdom", "United States", "Nigeria", "Argentina",
     "Philippines", "India", "Germany", "Singapore", "Brazil",
 ];
+
+// A company's home currency — used to show network fees in money the payer
+// actually recognises instead of raw ETH.
+const COMPANY_CURRENCY: Record<string, string> = {
+    "United Kingdom": "GBP", "United States": "USD", Nigeria: "NGN",
+    Argentina: "ARS", Philippines: "PHP", India: "INR",
+    Germany: "EUR", Singapore: "SGD", Brazil: "BRL",
+};
+export const currencyForCountry = (country: string | null | undefined) =>
+    (country && COMPANY_CURRENCY[country]) || "USD";
 // deterministic gradient avatar from a name
 export function avatarFor(name: string): [string, string] {
     const palettes: [string, string][] = [

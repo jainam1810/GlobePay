@@ -17,9 +17,30 @@ const PER_PERSON = "1";
 const APPROVE_CAP = "1000";
 
 export default function PortalHome() {
-    const { address, isConnected, chainId } = useAccount();
+    const { address, isConnected, chainId, connector } = useAccount();
     const publicClient = usePublicClient();
     const { writeContractAsync } = useWriteContract();
+
+    // A Safe multisig doesn't execute on signing — it *proposes*, then waits for
+    // the other signers. So the hash we get back is a Safe transaction hash, not
+    // an on-chain one, and waiting for a receipt would hang until co-signers act.
+    //
+    // Detect this from the chain, not the connector: a Safe reached over
+    // WalletConnect reports type "walletConnect", so trusting the connector would
+    // miss it. An address with bytecode is a smart account; an EOA has none.
+    // Store *which* address was found to be a contract, so switching wallets
+    // can't leave a stale "yes" behind while the new check is in flight.
+    const [smartAccountAddr, setSmartAccountAddr] = useState<string | null>(null);
+    useEffect(() => {
+        if (!publicClient || !address) return;
+        let live = true;
+        publicClient.getCode({ address })
+            .then((code) => { if (live && code && code !== "0x") setSmartAccountAddr(address); })
+            .catch(() => { /* treat as a plain EOA */ });
+        return () => { live = false; };
+    }, [publicClient, address]);
+
+    const viaSafe = connector?.type === "safe" || (!!address && smartAccountAddr === address);
 
     const [runs, setRuns] = useState<PayrollRun[] | null>(null);
     const [myClient, setMyClient] = useState<DbClient | null>(null);
@@ -27,6 +48,7 @@ export default function PortalHome() {
     const [busyRun, setBusyRun] = useState<string | null>(null);
     const [phase, setPhase] = useState<"idle" | "approving" | "paying">("idle");
     const [doneRun, setDoneRun] = useState<string | null>(null);
+    const [proposedRun, setProposedRun] = useState<string | null>(null);
 
     function load() {
         fetch("/api/payroll-runs")
@@ -67,6 +89,13 @@ export default function PortalHome() {
                     address: USDC_ADDRESS, abi: erc20Abi, functionName: "approve",
                     args: [DISPERSE_ADDRESS, parseUnits(APPROVE_CAP, 6)],
                 });
+                // In a Safe the approval is itself queued for signatures. Queueing
+                // the payout now would guarantee a revert — the allowance won't
+                // exist when it executes. Stop here and let the signers act.
+                if (viaSafe) {
+                    setError("Step 1 of 2: the USDC authorisation is queued in your Safe. Once the other signers approve it, come back and propose the payroll itself.");
+                    return;
+                }
                 await publicClient.waitForTransactionReceipt({ hash: approveHash });
                 await refetchAllowance();
             }
@@ -78,6 +107,15 @@ export default function PortalHome() {
                 address: DISPERSE_ADDRESS, abi: disperseAbi, functionName: "disperseToken",
                 args: [USDC_ADDRESS, recipients, amounts],
             });
+
+            // Multisig: the payroll is now queued in the Safe awaiting the other
+            // signers. There's no receipt to wait for and nothing to file yet —
+            // once the Safe executes, the payment is picked up from the chain.
+            if (viaSafe) {
+                setProposedRun(run.id);
+                return;
+            }
+
             await publicClient.waitForTransactionReceipt({ hash });
 
             // Tell the server: it verifies the tx on-chain and files the receipt.
@@ -117,6 +155,16 @@ export default function PortalHome() {
                 <div className="fade-up notice mt-6 rounded-xl px-4 py-3 text-sm flex items-center gap-2 flex-wrap">
                     <CheckCircle2 size={16} /> Payroll confirmed — everyone paid in one transaction.
                     <Link className="underline underline-offset-2 font-medium" href="/portal/payments">View receipt →</Link>
+                </div>
+            )}
+            {proposedRun && (
+                <div className="fade-up mt-6 rounded-xl border border-[rgba(245,177,76,0.3)] bg-[rgba(245,177,76,0.08)] text-[#f5b14c] px-4 py-3 text-sm flex items-start gap-2">
+                    <ShieldCheck size={16} className="shrink-0 mt-0.5" />
+                    <span>
+                        <span className="font-medium">Queued in your Safe.</span> Your signature is recorded — the payroll
+                        executes once the remaining signers approve it in the Safe. Nothing has moved yet, and it stays
+                        listed here until it does.
+                    </span>
                 </div>
             )}
 
@@ -164,14 +212,16 @@ export default function PortalHome() {
                                 <div className="border-t border-[var(--border)] bg-[var(--surface-2)]/30 px-5 md:px-6 py-4 flex items-center justify-between gap-3 flex-wrap">
                                     <div className="text-[11px] text-[var(--text-dim)] max-w-sm leading-relaxed">
                                         <ShieldCheck size={13} className="inline mr-1 text-[var(--accent)]" />
-                                        One signature pays everyone at once. If anything fails, the whole payment rolls back — no one gets half-paid.
+                                        {viaSafe
+                                            ? "This queues the payroll in your Safe for the other signers to approve. If anything fails, the whole payment rolls back — no one gets half-paid."
+                                            : "One signature pays everyone at once. If anything fails, the whole payment rolls back — no one gets half-paid."}
                                     </div>
                                     <button onClick={() => confirmRun(run)}
                                         disabled={!isConnected || wrongNetwork || wrongWallet || insufficientUsdc || busyRun !== null || !DISPERSE_ADDRESS}
                                         className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
                                         {busyRun === run.id
-                                            ? <><Loader2 size={16} className="animate-spin" /> {phase === "approving" ? "Authorising…" : "Paying everyone…"}</>
-                                            : <><Send size={16} /> Confirm &amp; pay {run.line_items.length}</>}
+                                            ? <><Loader2 size={16} className="animate-spin" /> {phase === "approving" ? "Authorising…" : viaSafe ? "Queueing in Safe…" : "Paying everyone…"}</>
+                                            : <><Send size={16} /> {viaSafe ? `Propose payroll (${run.line_items.length})` : `Confirm & pay ${run.line_items.length}`}</>}
                                     </button>
                                 </div>
                                 {!isConnected && <PortalBanner>Connect your company wallet (top right) to confirm.</PortalBanner>}

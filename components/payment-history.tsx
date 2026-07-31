@@ -2,16 +2,20 @@
 // Shared payment history: list + expandable plain-language receipts.
 // The /api/payments route scopes by session (admin: all clients + names;
 // client: only their own), so this component works in both worlds.
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { History, CheckCircle2, ExternalLink, Loader2, AlertCircle, Copy, Check, ChevronDown, DownloadCloud, Send } from "lucide-react";
 import type { SavedPayment } from "@/lib/payments";
-import { truncate, flagFor, avatarFor } from "@/lib/contractor-types";
+import { truncate, flagFor, avatarFor, currencyForCountry } from "@/lib/contractor-types";
+import { getFxRate } from "@/lib/fx";
+
+const ALL = "__all__";
 
 export default function PaymentHistory({ allowImport = false }: { allowImport?: boolean }) {
     const [payments, setPayments] = useState<SavedPayment[] | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [importing, setImporting] = useState(false);
     const [importNote, setImportNote] = useState<string | null>(null);
+    const [client, setClient] = useState<string>(ALL);
 
     function load() {
         fetch("/api/payments")
@@ -20,6 +24,17 @@ export default function PaymentHistory({ allowImport = false }: { allowImport?: 
             .catch((e) => setError(e instanceof Error ? e.message : "Network error"));
     }
     useEffect(load, []);
+
+    // Only meaningful for GlobePay admins — a client's own payments all carry
+    // the same name, so the API leaves client_name null in the portal.
+    const clientNames = useMemo(
+        () => [...new Set((payments || []).map((p) => p.client_name).filter((n): n is string => !!n))].sort(),
+        [payments],
+    );
+    const visible = useMemo(
+        () => (payments || []).filter((p) => client === ALL || p.client_name === client),
+        [payments, client],
+    );
 
     async function backfill() {
         setImporting(true); setImportNote(null);
@@ -71,11 +86,23 @@ export default function PaymentHistory({ allowImport = false }: { allowImport?: 
 
             {payments && payments.length > 0 && (
                 <>
+                    {clientNames.length > 1 && (
+                        <div className="fade-up mt-4 flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-faint)] mr-1">Client</span>
+                            <FilterPill label="All clients" active={client === ALL} onClick={() => setClient(ALL)} />
+                            {clientNames.map((n) => (
+                                <FilterPill key={n} label={n} active={client === n} onClick={() => setClient(n)} />
+                            ))}
+                        </div>
+                    )}
                     <div className="fade-up mt-4 text-xs text-[var(--text-faint)] font-mono">
-                        {payments.length} payment{payments.length === 1 ? "" : "s"} · newest first
+                        {visible.length}{visible.length !== payments.length && ` of ${payments.length}`} payment{payments.length === 1 ? "" : "s"} · newest first
                     </div>
                     <div className="fade-up mt-3 space-y-3">
-                        {payments.map((p) => <PaymentRow key={p.id} p={p} />)}
+                        {visible.map((p) => <PaymentRow key={p.id} p={p} />)}
+                        {visible.length === 0 && (
+                            <div className="card p-8 text-center text-sm text-[var(--text-dim)]">No payments for {client}.</div>
+                        )}
                     </div>
                     <Footnote />
                 </>
@@ -84,9 +111,31 @@ export default function PaymentHistory({ allowImport = false }: { allowImport?: 
     );
 }
 
+function FilterPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+    return (
+        <button onClick={onClick}
+            className={`text-[11px] px-2.5 py-1 rounded-lg border transition ${active
+                ? "border-[var(--accent)] bg-[rgba(47,230,168,0.08)] text-[var(--accent)]"
+                : "border-[var(--border-strong)] text-[var(--text-dim)] hover:text-[var(--text)]"}`}>
+            {label}
+        </button>
+    );
+}
+
 const fmtUsdc = (n: number) => Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 });
-// Testnet fees are fractions of a cent — never let them round to "0.000000".
-const fmtFee = (f: number) => f > 0 && f < 0.00001 ? "< 0.00001 ETH" : `${Number(f).toFixed(5)} ETH`;
+const fmtMoney = (n: number, ccy: string) => {
+    try {
+        return n.toLocaleString("en-GB", { style: "currency", currency: ccy, maximumFractionDigits: n < 1 ? 4 : 2 });
+    } catch {
+        return `${fmtUsdc(n)} ${ccy}`;   // unknown ISO code — degrade rather than throw
+    }
+};
+// Testnet fees are fractions of a cent, so a fixed 5dp would read "0.00000".
+// In ETH mode show the exact number the chain charged, however small.
+const fmtFeeEth = (f: number) => `${f} ETH`;
+
+const TESTNET_NOTE =
+    "Testnet demo: the chain moved a flat 1 USDC per person. This is the real USD figure from the payroll run — in production that exact amount is what gets sent.";
 
 function PaymentRow({ p }: { p: SavedPayment }) {
     const [open, setOpen] = useState(false);
@@ -97,6 +146,11 @@ function PaymentRow({ p }: { p: SavedPayment }) {
     const headline = named.length === p.recipient_count && named.length > 0 && p.recipient_count <= 3
         ? named.map((r) => r.name!.split(" ")[0]).join(", ")
         : `${p.recipient_count} contractor${p.recipient_count === 1 ? "" : "s"}`;
+
+    // Prefer the real USD the payroll run recorded; fall back to what the
+    // chain actually moved when no run is linked to this transaction.
+    const hasIntended = p.intended_total != null;
+    const total = hasIntended ? p.intended_total! : p.total_amount;
 
     return (
         <div className="card overflow-hidden">
@@ -117,17 +171,61 @@ function PaymentRow({ p }: { p: SavedPayment }) {
                         )}
                     </div>
                     <div className="text-[11px] font-mono text-[var(--text-faint)] mt-1.5">
-                        {date} · {time} · one transaction, one signature
+                        {date} · {time}
                     </div>
                 </div>
-                <div className="text-right shrink-0">
-                    <div className="font-mono text-xl font-semibold">{fmtUsdc(p.total_amount)}</div>
-                    <div className="text-[10px] text-[var(--text-faint)] uppercase font-mono tracking-wider">{p.token_symbol} sent</div>
+                <div className="text-right shrink-0" title={hasIntended ? TESTNET_NOTE : undefined}>
+                    <div className="font-mono text-xl font-semibold">
+                        {hasIntended ? fmtMoney(total, "USD") : fmtUsdc(total)}
+                    </div>
+                    <div className="text-[10px] text-[var(--text-faint)] uppercase font-mono tracking-wider">
+                        {hasIntended ? "total paid" : `${p.token_symbol} sent`}
+                    </div>
                 </div>
                 <ChevronDown size={16} className={`shrink-0 text-[var(--text-faint)] transition-transform ${open ? "rotate-180" : ""}`} />
             </button>
 
             {open && <Receipt p={p} date={date} time={time} />}
+        </div>
+    );
+}
+
+// Network fees are quoted in ETH, which means nothing to a finance team.
+// Show the payer's own currency by default and let them flip to exact ETH.
+function NetworkFee({ feeEth, country }: { feeEth: number | null; country?: string | null }) {
+    const ccy = currencyForCountry(country);
+    const [rate, setRate] = useState<number | null>(null);
+    const [showEth, setShowEth] = useState(false);
+
+    useEffect(() => {
+        let live = true;
+        getFxRate("eth", ccy, "latest").then((r) => { if (live) setRate(r); });
+        return () => { live = false; };
+    }, [ccy]);
+
+    if (feeEth === null) return <Fact label="Network fee" value="—" sub="paid to the network, not GlobePay" />;
+
+    const fiat = rate !== null ? feeEth * rate : null;
+    // Sub-cent fees are the norm on testnet — say so rather than print "£0.00".
+    const fiatText = fiat === null ? null : fiat < 0.01 ? `under ${fmtMoney(0.01, ccy)}` : fmtMoney(fiat, ccy);
+    const showingFiat = !showEth && fiatText !== null;
+
+    return (
+        <div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-faint)] mb-1 flex items-center gap-1.5">
+                Network fee
+                {fiatText !== null && (
+                    <button onClick={() => setShowEth(!showEth)}
+                        className="text-[9px] normal-case tracking-normal text-[var(--text-dim)] hover:text-[var(--accent)] underline underline-offset-2 transition"
+                        title={showingFiat ? "Show the exact amount of ETH charged" : `Show the value in ${ccy}`}>
+                        {showingFiat ? "show ETH" : `show ${ccy}`}
+                    </button>
+                )}
+            </div>
+            <div className="font-mono text-sm text-[var(--text)]" title={showingFiat ? `Exactly ${fmtFeeEth(feeEth)}` : undefined}>
+                {showingFiat ? fiatText : fmtFeeEth(feeEth)}
+            </div>
+            <div className="text-[10px] text-[var(--text-faint)] mt-0.5">paid to the network, not GlobePay</div>
         </div>
     );
 }
@@ -140,14 +238,21 @@ function Receipt({ p, date, time }: { p: SavedPayment; date: string; time: strin
                     const display = r.name ?? "Unknown wallet";
                     const initials = r.name ? r.name.split(" ").map((n) => n[0]).join("").slice(0, 2) : "0x";
                     const [g1, g2] = avatarFor(display);
+                    const intended = r.intended_amount;
                     return (
                         <div key={r.wallet} className="flex items-center gap-3 px-5 py-3">
                             <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full font-display font-semibold text-[11px] text-[#04130d]" style={{ background: `linear-gradient(135deg, ${g1}, ${g2})` }}>{initials}</div>
                             <div className="min-w-0 flex-1">
                                 <div className="text-sm font-medium truncate">{display}{r.country && <span className="ml-1.5 text-sm">{flagFor(r.country)}</span>}</div>
-                                <div className="font-mono text-[10px] text-[var(--text-faint)]">{truncate(r.wallet)}</div>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="font-mono text-[10px] text-[var(--text-faint)]">{truncate(r.wallet)}</span>
+                                    <CopyButton value={r.wallet} title={`Copy ${display}'s wallet address`} size={11} />
+                                </div>
                             </div>
-                            <div className="font-mono text-sm font-semibold text-[var(--accent)]">+ {fmtUsdc(r.amount)} {p.token_symbol}</div>
+                            <div className="font-mono text-sm font-semibold text-[var(--accent)] shrink-0"
+                                title={intended != null ? TESTNET_NOTE : undefined}>
+                                {intended != null ? fmtMoney(intended, "USD") : `+ ${fmtUsdc(r.amount)} ${p.token_symbol}`}
+                            </div>
                         </div>
                     );
                 })}
@@ -155,38 +260,49 @@ function Receipt({ p, date, time }: { p: SavedPayment; date: string; time: strin
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 px-5 py-4 border-t border-[var(--border)]">
                 <Fact label="Sent on" value={`${date}, ${time}`} />
-                <Fact label="Status" value="Confirmed on Base" sub="permanently recorded" tone="accent" />
-                <Fact label="From" value={truncate(p.from_address)} sub="the company wallet" />
-                <Fact label="Network fee" value={p.fee_eth !== null ? fmtFee(p.fee_eth) : "—"} sub="paid to the network, not GlobePay" />
+                <div>
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-faint)] mb-1">Status</div>
+                    <a href={`https://sepolia.basescan.org/tx/${p.tx_hash}`} target="_blank" rel="noreferrer"
+                        className="font-mono text-sm text-[var(--accent)] inline-flex items-center gap-1 hover:underline underline-offset-2"
+                        title="View this transaction on Basescan">
+                        Confirmed on Base <ExternalLink size={11} />
+                    </a>
+                    <div className="text-[10px] text-[var(--text-faint)] mt-0.5">permanently recorded</div>
+                </div>
+                <div>
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-faint)] mb-1">From</div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-sm text-[var(--text)]">{truncate(p.from_address)}</span>
+                        <CopyButton value={p.from_address} title="Copy the company wallet address" size={12} />
+                    </div>
+                    <div className="text-[10px] text-[var(--text-faint)] mt-0.5">the company wallet</div>
+                </div>
+                <NetworkFee feeEth={p.fee_eth} country={p.client_country} />
             </div>
 
-            <div className="flex items-center justify-between gap-3 flex-wrap px-5 py-3.5 border-t border-[var(--border)]">
-                <ReceiptId hash={p.tx_hash} />
-                <a href={`https://sepolia.basescan.org/tx/${p.tx_hash}`} target="_blank" rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-[11px] text-[var(--text-faint)] hover:text-[var(--text-dim)] transition">
-                    Advanced: raw transaction on Basescan <ExternalLink size={11} />
-                </a>
+            <div className="flex items-center gap-2 px-5 py-3.5 border-t border-[var(--border)] min-w-0">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-faint)] shrink-0">Receipt ID</span>
+                <span className="font-mono text-[11px] text-[var(--text-dim)] truncate">{truncate(p.tx_hash)}</span>
+                <CopyButton value={p.tx_hash} title="Copy full receipt ID" size={13} />
             </div>
         </div>
     );
 }
 
-function ReceiptId({ hash }: { hash: string }) {
+function CopyButton({ value, title, size = 12 }: { value: string; title: string; size?: number }) {
     const [copied, setCopied] = useState(false);
-    function copy() {
-        navigator.clipboard.writeText(hash).then(() => {
+    function copy(e: React.MouseEvent) {
+        e.stopPropagation();   // rows are clickable; copying must not toggle them
+        navigator.clipboard.writeText(value).then(() => {
             setCopied(true);
             setTimeout(() => setCopied(false), 1600);
         });
     }
     return (
-        <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-faint)] shrink-0">Receipt ID</span>
-            <span className="font-mono text-[11px] text-[var(--text-dim)] truncate">{truncate(hash)}</span>
-            <button onClick={copy} className="text-[var(--text-faint)] hover:text-[var(--text)] transition shrink-0" title="Copy full receipt ID">
-                {copied ? <Check size={13} className="text-[var(--accent)]" /> : <Copy size={13} />}
-            </button>
-        </div>
+        <button onClick={copy} title={title}
+            className="text-[var(--text-faint)] hover:text-[var(--text)] transition shrink-0">
+            {copied ? <Check size={size} className="text-[var(--accent)]" /> : <Copy size={size} />}
+        </button>
     );
 }
 
@@ -206,10 +322,12 @@ function Footnote() {
             <div className="flex items-start gap-2.5 text-[11px] text-[var(--text-faint)] leading-relaxed">
                 <div className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-dim)] shrink-0 mt-0.5">Note</div>
                 <div>
-                    Every payment here is rebuilt from the blockchain itself — the amounts come from the USDC contract&rsquo;s
-                    own transfer log, not from anything typed in. <span className="text-[var(--text-dim)]">&ldquo;Confirmed&rdquo;</span> means
-                    the network has permanently recorded it: it can&rsquo;t be edited, reversed, or deleted, and the Receipt ID
-                    lets anyone verify it independently.
+                    Every payment here is rebuilt from the blockchain itself — the transaction, its timestamp and its
+                    recipients all come from the chain, not from anything typed in.
+                    <span className="text-[var(--text-dim)]"> &ldquo;Confirmed&rdquo;</span> means the network has permanently
+                    recorded it: it can&rsquo;t be edited, reversed, or deleted, and the Receipt ID lets anyone verify it
+                    independently. Amounts are shown in USD from the payroll run behind each payment; on this testnet the
+                    chain itself moves a flat 1 USDC per person, and in production that USD figure is what gets sent.
                 </div>
             </div>
         </div>

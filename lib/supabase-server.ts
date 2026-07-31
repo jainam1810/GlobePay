@@ -3,6 +3,7 @@
 // unlike lib/supabase.ts (service role), which is for trusted server logic.
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { authCookieOptions } from "@/lib/supabase-cookies";
 
 export async function getSupabaseServer() {
     const cookieStore = await cookies();
@@ -11,6 +12,7 @@ export async function getSupabaseServer() {
     if (!url || !key) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local");
 
     return createServerClient(url, key, {
+        cookieOptions: authCookieOptions,
         cookies: {
             getAll() { return cookieStore.getAll(); },
             setAll(cookiesToSet) {
