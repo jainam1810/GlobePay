@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAccount, useWriteContract, useReadContract, usePublicClient } from "wagmi";
 import { baseSepolia } from "wagmi/chains";
-import { parseUnits, erc20Abi } from "viem";
-import { Loader2, CheckCircle2, ShieldCheck, Send, AlertCircle, History } from "lucide-react";
+import { parseUnits, formatUnits, erc20Abi } from "viem";
+import { Loader2, CheckCircle2, ShieldCheck, Send, AlertCircle, History, Wallet } from "lucide-react";
 import { USDC_ADDRESS } from "@/lib/usdc";
 import { DISPERSE_ADDRESS, disperseAbi } from "@/lib/disperse";
 import { flagFor, avatarFor, truncate, formatUSD } from "@/lib/contractor-types";
@@ -72,10 +72,13 @@ export default function PortalHome() {
         args: address ? [address, DISPERSE_ADDRESS] : undefined,
         query: { enabled: !!address && !!DISPERSE_ADDRESS },
     });
-    const { data: usdcBalance } = useReadContract({
+    // Polled, not just fetched once: with a Safe the payment is executed in the
+    // Safe UI rather than here, so the only way this page sees the deduction is
+    // to keep asking the chain.
+    const { data: usdcBalance, refetch: refetchBalance } = useReadContract({
         address: USDC_ADDRESS, abi: erc20Abi, functionName: "balanceOf",
         args: address ? [address] : undefined,
-        query: { enabled: !!address },
+        query: { enabled: !!address, refetchInterval: 5000 },
     });
 
     async function confirmRun(run: PayrollRun) {
@@ -126,6 +129,7 @@ export default function PortalHome() {
             const j = await r.json();
             if (!r.ok) throw new Error(j?.error || "Payment sent, but filing the receipt failed — it will appear after the next import.");
             setDoneRun(run.id);
+            await refetchBalance();   // show the deduction immediately
             load();
         } catch (e) {
             setError(humanError(e));
@@ -145,6 +149,13 @@ export default function PortalHome() {
                     GlobePay prepares everything. You approve with <span className="text-[var(--text)]">one signature from your own wallet</span> — funds go straight from you to your freelancers. GlobePay never holds your money.
                 </p>
             </div>
+
+            <TreasuryBalance
+                address={address}
+                isConnected={isConnected}
+                balance={usdcBalance as bigint | undefined}
+                viaSafe={viaSafe}
+            />
 
             {error && (
                 <div className="fade-up mt-6 rounded-xl border border-[rgba(255,107,107,0.3)] bg-[rgba(255,107,107,0.08)] text-[#ff6b6b] px-4 py-3 text-sm flex items-center gap-2">
@@ -271,6 +282,45 @@ export default function PortalHome() {
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+// The money the client is about to spend, read live from the chain. This is
+// what makes a payment feel real in the demo: the number visibly drops when the
+// transfer lands, and it keeps polling so a Safe execution (which happens in
+// the Safe UI, not here) still shows up.
+function TreasuryBalance({ address, isConnected, balance, viaSafe }: {
+    address?: `0x${string}`;
+    isConnected: boolean;
+    balance?: bigint;
+    viaSafe: boolean;
+}) {
+    if (!isConnected || !address) return null;
+    const usdc = balance !== undefined ? Number(formatUnits(balance, 6)) : null;
+
+    return (
+        <div className="fade-up delay-1 card mt-6 px-5 md:px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3 min-w-0">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[rgba(47,230,168,0.08)] border border-[rgba(47,230,168,0.2)] text-[var(--accent)]">
+                    <Wallet size={17} />
+                </div>
+                <div className="min-w-0">
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-faint)]">
+                        {viaSafe ? "Company treasury · Safe" : "Company wallet"}
+                    </div>
+                    <div className="font-mono text-sm text-[var(--text-dim)] truncate">{truncate(address)}</div>
+                </div>
+            </div>
+            <div className="text-right">
+                <div className="flex items-baseline gap-1.5 justify-end">
+                    <span className="font-mono text-2xl font-semibold text-[var(--accent)]">
+                        {usdc === null ? "…" : usdc.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+                    </span>
+                    <span className="text-xs text-[var(--text-dim)]">USDC</span>
+                </div>
+                <div className="text-[10px] text-[var(--text-faint)] mt-0.5">available to pay · updates live</div>
+            </div>
         </div>
     );
 }
