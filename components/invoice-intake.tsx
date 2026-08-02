@@ -32,10 +32,12 @@ function guessContractor(name: string, roster: DbContractor[]) {
 
 const NEW = "__new__";
 
+export type InvoiceMeta = { number?: string; date?: string; description?: string };
+
 export default function InvoiceIntake({ clientId, roster, onAdd, onRosterChange, onClose }: {
     clientId: string;
     roster: DbContractor[];
-    onAdd: (contractorId: string, amountUsd: number) => void;
+    onAdd: (contractorId: string, amountUsd: number, invoice: InvoiceMeta) => void;
     onRosterChange: () => void;
     onClose: () => void;
 }) {
@@ -57,6 +59,11 @@ export default function InvoiceIntake({ clientId, roster, onAdd, onRosterChange,
 
     const chosen = useMemo(() => roster.find((c) => c.id === target) ?? null, [roster, target]);
     const notUsd = form.currency.toUpperCase() !== "USD";
+    // Invoice fraud is normally a real invoice with the attacker's address
+    // swapped in, so a quoted wallet that differs from the one on file is worth
+    // stopping on.
+    const walletMismatch = !!(chosen && raw?.payeeWallet
+        && raw.payeeWallet.trim().toLowerCase() !== chosen.wallet.trim().toLowerCase());
 
     const walletOk = !nu.wallet.trim() || isAddress(nu.wallet.trim());
     const rule = getTaxRule(nu.country);
@@ -113,10 +120,15 @@ export default function InvoiceIntake({ clientId, roster, onAdd, onRosterChange,
     async function submit() {
         const n = Number(form.amountUsd);
         if (!(n > 0)) return;
+        const meta: InvoiceMeta = {
+            number: form.invoiceNumber.trim() || undefined,
+            date: form.date || undefined,
+            description: form.description.trim() || undefined,
+        };
 
         if (target !== NEW) {
             if (!target) return;
-            onAdd(target, n);
+            onAdd(target, n, meta);
             return;
         }
 
@@ -138,7 +150,7 @@ export default function InvoiceIntake({ clientId, roster, onAdd, onRosterChange,
             const j = await r.json();
             if (!r.ok) throw new Error(j?.error || "Could not add that contractor");
             onRosterChange();
-            onAdd(j.contractor.id, n);
+            onAdd(j.contractor.id, n, meta);
         } catch (e) {
             setErr(e instanceof Error ? e.message : "Could not add that contractor");
         } finally { setSaving(false); }
@@ -250,6 +262,47 @@ export default function InvoiceIntake({ clientId, roster, onAdd, onRosterChange,
                             <p className="mt-1.5 text-[11px] text-[var(--warn)]">
                                 Invoice says “{form.payeeName}” — check this is the same person.
                             </p>
+                        )}
+
+                        {/* Where the money will actually go, next to where the
+                            invoice asked it to go. An invoice quoting a different
+                            address than the one on file is the classic redirect
+                            scam, so it is called out rather than merely shown —
+                            but we never overwrite a saved wallet from a document. */}
+                        {chosen && (
+                            <div className={`mt-3 rounded-lg border p-3 ${walletMismatch
+                                ? "border-[var(--danger-line)] bg-[var(--danger-soft)]"
+                                : "border-[var(--border)] bg-[var(--surface-2)]"}`}>
+                                <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)] mb-1.5">
+                                    Will be paid to
+                                </div>
+                                <div className="font-mono text-[11px] break-all">{chosen.wallet}</div>
+
+                                {raw.payeeWallet && (
+                                    <div className="mt-2 pt-2 border-t border-[var(--border)]">
+                                        <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)] mb-1">
+                                            Wallet written on the invoice
+                                        </div>
+                                        <div className={`font-mono text-[11px] break-all ${walletMismatch ? "text-[var(--danger)]" : "text-[var(--ok)]"}`}>
+                                            {raw.payeeWallet}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {walletMismatch ? (
+                                    <p className="mt-2 text-[11px] text-[var(--danger)] leading-relaxed">
+                                        <strong>These do not match.</strong> Payment goes to the address on file, not the one
+                                        on the invoice. If the contractor has genuinely changed wallets, confirm it with them
+                                        directly — by a channel other than this invoice — and update it on their profile.
+                                    </p>
+                                ) : raw.payeeWallet ? (
+                                    <p className="mt-2 text-[11px] text-[var(--ok)]">Matches the address on file.</p>
+                                ) : (
+                                    <p className="mt-2 text-[11px] text-[var(--text-faint)]">
+                                        No wallet on the invoice — paying the address already on file.
+                                    </p>
+                                )}
+                            </div>
                         )}
 
                         {target === NEW && (
