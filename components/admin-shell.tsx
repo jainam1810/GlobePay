@@ -1,12 +1,13 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, History, LayoutDashboard, Scale, FileText, MessagesSquare } from "lucide-react";
+import { Building2, History, LayoutDashboard, Scale, FileText, MessagesSquare, BarChart3 } from "lucide-react";
 import SignOutButton from "@/components/sign-out-button";
 import AskWidget from "@/components/ask-widget";
 
 const nav = [
     { href: "/admin", label: "Overview", icon: LayoutDashboard },
+    { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/admin/clients", label: "Clients", icon: Building2 },
     { href: "/admin/payments", label: "All payments", icon: History },
     { href: "/admin/ledger", label: "Tax ledger", icon: Scale },
