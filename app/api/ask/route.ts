@@ -125,7 +125,25 @@ export async function POST(req: Request) {
             answer = `${money(total)}${where}${over}, across ${plural(count, "payment")} to ${plural(people, "contractor")}.`;
         }
 
-        return NextResponse.json({ answer, query: q, rows: count, total, period: label });
+        // Ship the rows the answer was computed from. A total nobody can open is
+        // the kind of number that gets challenged in a meeting and can't be
+        // defended; this makes every figure traceable to named payments.
+        const evidence = [...rows]
+            .sort((a, b) => +when(b) - +when(a))
+            .slice(0, 50)
+            .map((rec) => ({
+                name: rec.payee_name,
+                country: rec.tax_country,
+                amount: Number(rec.amount || 0),
+                date: when(rec).toISOString().slice(0, 10),
+                invoice: rec.invoice_number ?? null,
+                tx: rec.tx_hash ?? null,
+            }));
+
+        return NextResponse.json({
+            answer, query: q, rows: count, total, period: label,
+            evidence, truncated: count > evidence.length,
+        });
     } catch (e) {
         return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 500 });
     }
