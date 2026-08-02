@@ -6,6 +6,7 @@ import { SUPPORTED_COUNTRIES, COMPANY_COUNTRIES, flagFor, avatarFor, truncate, f
 import type { DbClient, PayrollRun } from "@/lib/clients";
 import ImportFreelancers from "@/components/import-freelancers";
 import InvoiceIntake, { type InvoiceMeta } from "@/components/invoice-intake";
+import Confirm from "@/components/confirm";
 
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -28,6 +29,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const [showInvoice, setShowInvoice] = useState(false);
     const [editing, setEditing] = useState<string | null>(null);
     const [editClient, setEditClient] = useState(false);
+    // Pending confirmations. Both actions below are visible to someone else —
+    // a client waiting to sign, or a roster they rely on — so neither happens
+    // on a single stray click.
+    const [askCancel, setAskCancel] = useState<PayrollRun | null>(null);
+    const [askRemove, setAskRemove] = useState<DbContractor | null>(null);
 
     function load() {
         fetch("/api/clients").then((r) => r.json())
@@ -95,8 +101,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         load();
     }
 
-    async function removeFreelancer(cid: string, name: string) {
-        if (!confirm(`Remove ${name} from this client's roster? Past payments and ledger entries are kept.`)) return;
+    async function removeFreelancer(cid: string) {
         const r = await fetch(`/api/contractors/${cid}`, { method: "DELETE" });
         if (!r.ok) { const j = await r.json().catch(() => ({})); setError(j?.error || "Failed to remove freelancer"); return; }
         load();
@@ -241,7 +246,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                                 title={`Edit ${c.name}`} className="text-[var(--text-faint)] hover:text-[var(--accent)] transition">
                                                 <Pencil size={13} />
                                             </button>
-                                            <button onClick={() => removeFreelancer(c.id, c.name)}
+                                            <button onClick={() => setAskRemove(c)}
                                                 title={`Remove ${c.name}`} className="text-[var(--text-faint)] hover:text-[var(--danger)] transition">
                                                 <Trash2 size={13} />
                                             </button>
@@ -293,7 +298,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                 </div>
                                 <div className="font-mono text-sm font-semibold w-24 text-right">{formatUSD(Number(r.total_amount))}</div>
                                 {r.status === "pending_confirmation" && (
-                                    <button onClick={() => cancelRun(r.id)} className="text-[11px] text-[var(--text-faint)] hover:text-[var(--danger)] transition">Cancel</button>
+                                    <button onClick={() => setAskCancel(r)} className="text-[11px] text-[var(--text-faint)] hover:text-[var(--danger)] transition">Cancel</button>
                                 )}
                                 {r.status === "executed" && r.tx_hash && (
                                     <a href={`https://sepolia.basescan.org/tx/${r.tx_hash}`} target="_blank" rel="noreferrer" className="text-[var(--text-faint)] hover:text-[var(--text)]"><ExternalLink size={13} /></a>
@@ -303,6 +308,34 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     </div>
                 )}
             </div>
+
+            <Confirm
+                open={!!askCancel}
+                onOpenChange={(v) => !v && setAskCancel(null)}
+                title="Cancel this payroll run?"
+                confirmLabel="Cancel run"
+                danger
+                body={<>
+                    <strong className="text-[var(--text)]">{client?.company_name ?? "The client"}</strong> can currently
+                    see this waiting for their signature, and it will disappear from their portal.
+                    {askCancel && <> It covers {formatUSD(Number(askCancel.total_amount))} to {askCancel.line_items.length} freelancer{askCancel.line_items.length === 1 ? "" : "s"}.</>}
+                    {" "}You&rsquo;ll need to prepare a new one to pay them.
+                </>}
+                onConfirm={async () => { if (askCancel) { await cancelRun(askCancel.id); setAskCancel(null); } }}
+            />
+
+            <Confirm
+                open={!!askRemove}
+                onOpenChange={(v) => !v && setAskRemove(null)}
+                title={`Remove ${askRemove?.name ?? ""}?`}
+                confirmLabel="Remove"
+                danger
+                body={<>
+                    They come off this client&rsquo;s roster and can&rsquo;t be selected for future payroll.
+                    Payments already made and their ledger entries are kept — nothing in the audit trail changes.
+                </>}
+                onConfirm={async () => { if (askRemove) { await removeFreelancer(askRemove.id); setAskRemove(null); } }}
+            />
         </div>
     );
 }

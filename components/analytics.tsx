@@ -14,10 +14,10 @@
 // protanopia — which is the argument for one hue, not four.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-    ResponsiveContainer, AreaChart, Area, BarChart, Bar,
+    ResponsiveContainer, BarChart, Bar,
     XAxis, YAxis, CartesianGrid, Tooltip, Cell,
 } from "recharts";
-import { Loader2, AlertCircle, BarChart3, Table2, LineChart } from "lucide-react";
+import { Loader2, AlertCircle, BarChart3, Table2 } from "lucide-react";
 import type { SavedRecord } from "@/lib/records";
 import { flagFor } from "@/lib/contractor-types";
 import { format, parseISO } from "date-fns";
@@ -153,19 +153,21 @@ export default function Analytics({ scopeLabel }: { scopeLabel?: string }) {
             </div>
 
             {byMonth.length > 1 && (
-                <Panel title="Paid per month" note="One series — the axis and tooltip carry the values." delay="delay-2">
+                <Panel
+                    title="Paid per month"
+                    note={`${byMonth.length} months · biggest was ${byMonth.reduce((a, b) => (b.value > a.value ? b : a)).label}. Hover a column for the exact figure.`}
+                    delay="delay-2">
                     <ChartFrame
                         table={byMonth.map((d) => [d.label, money2(d.value)])}
                         headers={["Month", "Paid"]}
                     >
-                        <ResponsiveContainer width="100%" height={230}>
-                            <AreaChart data={byMonth} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                                <defs>
-                                    <linearGradient id="gArea" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor={ACCENT} stopOpacity={0.28} />
-                                        <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
+                        {/* Columns rather than an area: months are discrete buckets you
+                            compare against each other, and an area implies a continuous
+                            quantity flowing between them. Height carries the value, so
+                            every column is the same hue — a value ramp here would encode
+                            the same thing twice. */}
+                        <ResponsiveContainer width="100%" height={250}>
+                            <BarChart data={byMonth} margin={{ top: 16, right: 8, left: 0, bottom: 0 }} barCategoryGap="22%">
                                 {/* Solid hairline grid, horizontal only — dashed reads as
                                     "threshold" when it is just a grid. */}
                                 <CartesianGrid stroke={GRID} strokeWidth={1} vertical={false} />
@@ -173,10 +175,13 @@ export default function Analytics({ scopeLabel }: { scopeLabel?: string }) {
                                     axisLine={{ stroke: GRID }} tickLine={false} />
                                 <YAxis tickFormatter={(v) => money(Number(v))}
                                     tick={{ fill: INK_DIM, fontSize: 11 }} axisLine={false} tickLine={false} width={62} />
-                                <Tooltip content={<Tip />} cursor={{ stroke: ACCENT, strokeWidth: 1 }} />
-                                <Area type="monotone" dataKey="value" stroke={ACCENT} strokeWidth={2}
-                                    fill="url(#gArea)" dot={false} activeDot={{ r: 5, strokeWidth: 2, stroke: "var(--surface)" }} />
-                            </AreaChart>
+                                {/* The hit area is the whole column band, not the bar —
+                                    a thin column is a pinpoint target otherwise. */}
+                                <Tooltip content={<Tip />} cursor={{ fill: "var(--surface-2)" }} />
+                                <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={44} isAnimationActive={false}>
+                                    {byMonth.map((d) => <Cell key={d.key} fill={ACCENT} />)}
+                                </Bar>
+                            </BarChart>
                         </ResponsiveContainer>
                     </ChartFrame>
                 </Panel>
@@ -269,7 +274,7 @@ function ChartFrame({ children, headers, table }: {
                 <button onClick={() => setAsTable(!asTable)}
                     className="inline-flex items-center gap-1 text-[11px] text-[var(--text-faint)] hover:text-[var(--text)] transition"
                     aria-pressed={asTable}>
-                    {asTable ? <><LineChart size={11} /> Chart</> : <><Table2 size={11} /> Table</>}
+                    {asTable ? <><BarChart3 size={11} /> Chart</> : <><Table2 size={11} /> Table</>}
                 </button>
             </div>
             {asTable ? (
