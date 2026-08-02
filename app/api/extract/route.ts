@@ -32,6 +32,7 @@ export async function POST(req: Request) {
                             `You are an invoice-reading assistant. Extract the structured fields from the attached invoice and return JSON matching the provided schema.
 
 Rules:
+- payeeWallet: the 0x… crypto wallet address the contractor asks to be paid at, copied EXACTLY, character for character. Never correct, complete or guess an address — a single wrong character sends money to a stranger. Empty string if none is given.
 - amount: the final total payable, as a number with no currency symbol.
 - currency: 3-letter ISO code (USD, EUR, GBP, NGN, INR, ARS, PHP, BRL, etc.).
 - date: ISO YYYY-MM-DD. If only month and year are shown, use day 01.

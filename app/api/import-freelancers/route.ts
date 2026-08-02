@@ -11,6 +11,14 @@ const PROMPT = `You are an onboarding assistant for a payroll platform. The atta
 
 Extract every freelancer into the provided JSON schema.
 
+The layout will NOT match our fields and does not need to. Column names, column
+order, language and formatting are all irrelevant — read the content, not the
+headings. A column called "Full name", "Freelancer", "Consultant" or nothing at
+all is still the name; "Rate", "Monthly", "Salary USD", "Cost/mo" is still the
+amount; "Address", "ETH", "Pay to", "0x…" is still the wallet. Data may sit in
+any column, be split across several, or appear in prose with no table at all.
+Take whatever is present and leave the rest empty.
+
 Rules:
 - One entry per distinct person. Do not invent people, wallets, or amounts.
 - wallet: copy the 0x address EXACTLY as written, character for character. Never correct, complete, or guess an address. Empty string if none given.
