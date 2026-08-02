@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, use } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Plus, AlertCircle, Send, Users, CheckCircle2, XCircle, Clock, ExternalLink, Sparkles, Pencil, Trash2, Copy, Check } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, AlertCircle, Send, Users, CheckCircle2, XCircle, Clock, ExternalLink, Sparkles, Pencil, Trash2, Copy, Check, FileUp } from "lucide-react";
 import { SUPPORTED_COUNTRIES, COMPANY_COUNTRIES, flagFor, avatarFor, truncate, formatUSD, type DbContractor } from "@/lib/contractor-types";
 import type { DbClient, PayrollRun } from "@/lib/clients";
 import ImportFreelancers from "@/components/import-freelancers";
+import InvoiceIntake from "@/components/invoice-intake";
 
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -21,6 +22,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const [prepMsg, setPrepMsg] = useState<string | null>(null);
     const [showAdd, setShowAdd] = useState(false);
     const [showImport, setShowImport] = useState(false);
+    const [showInvoice, setShowInvoice] = useState(false);
     const [editing, setEditing] = useState<string | null>(null);
     const [editClient, setEditClient] = useState(false);
 
@@ -142,16 +144,33 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                             </button>
                         )}
                     </div>
-                    <div className="flex items-center gap-4">
-                        <button className="text-xs inline-flex items-center gap-1 text-[var(--accent)] hover:opacity-80 transition" onClick={() => { setShowImport(!showImport); setShowAdd(false); setEditing(null); }}>
+                    <div className="flex items-center gap-4 flex-wrap">
+                        <button className="text-xs inline-flex items-center gap-1 text-[var(--accent)] hover:opacity-80 transition" onClick={() => { setShowInvoice(!showInvoice); setShowImport(false); setShowAdd(false); setEditing(null); }}>
+                            <FileUp size={13} /> Add from invoice
+                        </button>
+                        <button className="text-xs inline-flex items-center gap-1 text-[var(--accent)] hover:opacity-80 transition" onClick={() => { setShowImport(!showImport); setShowInvoice(false); setShowAdd(false); setEditing(null); }}>
                             <Sparkles size={13} /> Import list with AI
                         </button>
-                        <button className="text-xs inline-flex items-center gap-1 text-[var(--accent)] hover:opacity-80 transition" onClick={() => { setShowAdd(!showAdd); setShowImport(false); setEditing(null); }}>
+                        <button className="text-xs inline-flex items-center gap-1 text-[var(--accent)] hover:opacity-80 transition" onClick={() => { setShowAdd(!showAdd); setShowInvoice(false); setShowImport(false); setEditing(null); }}>
                             <Plus size={13} /> Add freelancer
                         </button>
                     </div>
                 </div>
 
+                {showInvoice && roster && (
+                    <InvoiceIntake
+                        roster={roster}
+                        onClose={() => setShowInvoice(false)}
+                        // The invoice doesn't pay anyone by itself — it selects the
+                        // contractor and fills their amount on this run, which the
+                        // operator still has to prepare and the client still has to sign.
+                        onAdd={(contractorId, amountUsd) => {
+                            setSelected(new Set([...selected, contractorId]));
+                            setAmounts({ ...amounts, [contractorId]: String(amountUsd) });
+                            setShowInvoice(false);
+                        }}
+                    />
+                )}
                 {showImport && <ImportFreelancers clientId={id} onImported={load} />}
                 {showAdd && <FreelancerForm clientId={id} onDone={() => { setShowAdd(false); load(); }} onCancel={() => setShowAdd(false)} />}
 
