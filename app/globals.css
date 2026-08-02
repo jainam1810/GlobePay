@@ -1,12 +1,21 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 /* One grotesque throughout — display and body are the same family at different
-   weights and tracking, which reads more like a product and less like a deck. */
+   weights and tracking, which reads more like a product and less like a deck.
+   Inter stays: it is still the most legible UI sans at small sizes.
+
+   The mono is IBM Plex Mono rather than JetBrains Mono. JetBrains is drawn for
+   code editors — narrow, tall x-height, tuned for 14px+ in a dark editor. Ours
+   carries money, dates and wallet addresses at 11–13px inside dense tables,
+   where it read thin and cramped. Plex Mono is wider, rounder and was designed
+   for business software; at these sizes it is noticeably easier to scan, and
+   its digits are unmistakable from one another — which matters when the string
+   is an amount or an address. */
 @theme {
   --font-display: "Inter", system-ui, sans-serif;
   --font-sans: "Inter", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 }
 
 :root {
@@ -129,6 +138,18 @@ body::after {
 .font-mono,
 [class*="font-mono"] {
   font-variant-numeric: tabular-nums;
+}
+
+/* Small uppercase mono labels were the least readable thing on the platform:
+   10px, letter-spaced, and low-contrast all at once. Nudging the floor to 11px
+   and the colour up a step costs no layout and makes them legible. */
+body {
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.text-\[10px\] {
+  font-size: 11px !important;
 }
 
 @layer components {

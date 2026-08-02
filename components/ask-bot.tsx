@@ -6,14 +6,69 @@
 // footer saying exactly what was counted — in a stakeholder meeting, a figure
 // you can't trace is worse than no figure.
 import { useEffect, useRef, useState } from "react";
-import { Send, Loader2, Sparkles, AlertCircle } from "lucide-react";
+import { Send, Loader2, Sparkles, AlertCircle, ChevronRight, ExternalLink } from "lucide-react";
+
+type Evidence = {
+    name: string; country: string | null; amount: number;
+    date: string; invoice: string | null; tx: string | null;
+};
 
 type Turn = {
     q: string;
     a?: string;
     scope?: string;
     error?: string;
+    evidence?: Evidence[];
+    truncated?: boolean;
 };
+
+function Evidence({ rows, truncated, scope }: { rows: Evidence[]; truncated: boolean; scope?: string }) {
+    // Collapsed by default: the answer is the point, the working is the backup.
+    // Small result sets open straight away, because hiding three rows is silly.
+    const [open, setOpen] = useState(rows.length <= 5);
+
+    return (
+        <div className="mt-3 pt-3 border-t border-[var(--border)]">
+            <button onClick={() => setOpen(!open)}
+                className="flex w-full items-center gap-1.5 text-[11px] text-[var(--text-dim)] hover:text-[var(--text)] transition">
+                <ChevronRight size={12} className={`transition-transform ${open ? "rotate-90" : ""}`} />
+                {open ? "Hide" : "Show"} the {rows.length} payment{rows.length === 1 ? "" : "s"} behind this
+                {scope && <span className="ml-auto text-[var(--text-faint)]">{scope}</span>}
+            </button>
+
+            {open && (
+                <div className="mt-2 overflow-hidden rounded-lg border border-[var(--border)]">
+                    {rows.map((r, i) => (
+                        <div key={i} className="flex items-baseline gap-2 px-2.5 py-1.5 border-b border-[var(--border)] last:border-0 bg-[var(--surface)]">
+                            <span className="font-mono text-[11px] text-[var(--text-faint)] shrink-0 w-[74px]">{r.date}</span>
+                            <span className="min-w-0 flex-1">
+                                <span className="block text-[12px] truncate">{r.name}</span>
+                                <span className="block text-[10px] text-[var(--text-faint)] truncate">
+                                    {r.country ?? "—"}{r.invoice ? ` · ${r.invoice}` : ""}
+                                </span>
+                            </span>
+                            {r.tx && (
+                                <a href={`https://sepolia.basescan.org/tx/${r.tx}`} target="_blank" rel="noreferrer"
+                                    title="View the transaction on Basescan"
+                                    className="shrink-0 text-[var(--text-faint)] hover:text-[var(--accent)] transition">
+                                    <ExternalLink size={11} />
+                                </a>
+                            )}
+                            <span className="font-mono text-[12px] shrink-0 tabular-nums">
+                                ${r.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                        </div>
+                    ))}
+                    {truncated && (
+                        <div className="px-2.5 py-1.5 text-[10px] text-[var(--text-faint)] bg-[var(--surface)]">
+                            Showing the 50 most recent — open the audit pack for the full list.
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
 
 const SUGGESTIONS = [
     "How much did we pay last quarter?",
@@ -56,6 +111,8 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
                     last.a = j.answer;
                     // What the filter actually matched, so the number is traceable.
                     last.scope = `${j.rows} record${j.rows === 1 ? "" : "s"} · ${j.period}`;
+                    last.evidence = j.evidence ?? [];
+                    last.truncated = !!j.truncated;
                 }
                 return next;
             });
@@ -106,10 +163,17 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
                                 <AlertCircle size={14} className="shrink-0 mt-0.5" /> {t.error}
                             </div>
                         ) : t.a ? (
-                            <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-[var(--surface-2)] border border-[var(--border)] px-3.5 py-3">
-                                <div className="text-[13px] whitespace-pre-wrap leading-relaxed">{t.a}</div>
-                                {t.scope && (
-                                    <div className="mt-2 pt-2 border-t border-[var(--border)] font-mono text-[10px] text-[var(--text-faint)]">
+                            <div className="max-w-[92%] rounded-2xl rounded-bl-sm bg-[var(--surface-2)] border border-[var(--border)] px-3.5 py-3">
+                                <div className="text-[14px] whitespace-pre-wrap leading-relaxed">{t.a}</div>
+
+                                {/* The payments the figure was computed from. A total
+                                    nobody can open is a total that gets challenged. */}
+                                {t.evidence && t.evidence.length > 0 && (
+                                    <Evidence rows={t.evidence} truncated={!!t.truncated} scope={t.scope} />
+                                )}
+
+                                {t.scope && !t.evidence?.length && (
+                                    <div className="mt-2 pt-2 border-t border-[var(--border)] text-[11px] text-[var(--text-faint)]">
                                         {t.scope}
                                     </div>
                                 )}

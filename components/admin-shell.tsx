@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, History, LayoutDashboard, Scale, FileText, MessagesSquare, Sparkles } from "lucide-react";
+import { Building2, History, LayoutDashboard, Scale, FileText, MessagesSquare } from "lucide-react";
 import SignOutButton from "@/components/sign-out-button";
 import AskWidget from "@/components/ask-widget";
 
@@ -12,7 +12,7 @@ const nav = [
     { href: "/admin/ledger", label: "Tax ledger", icon: Scale },
     { href: "/admin/audit-pack", label: "Audit pack", icon: FileText },
     { href: "/admin/messages", label: "Messages", icon: MessagesSquare },
-    { href: "/admin/ask", label: "Ask", icon: Sparkles },
+    // "Ask" is deliberately not here — it lives in the floating launcher.
 ];
 
 export default function AdminShell({ children, email }: { children: React.ReactNode; email: string | null }) {
