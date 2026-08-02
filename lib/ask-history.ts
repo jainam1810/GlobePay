@@ -35,17 +35,15 @@ const MAX = 40;   // plenty for a person, nowhere near a storage quota
 /**
  * How long a saved conversation survives.
  *
- * 30 days, not 24 hours. The job here is "get a number before a stakeholder
- * meeting", and those are weekly, monthly or quarterly — a question asked on
- * Friday for a Monday meeting must still be there on Monday. A day-long window
- * would delete the history precisely when it was about to be useful, and silent
- * overnight loss reads as a bug rather than a feature.
+ * 24 hours. Short, because nothing here is a record: every answer is recomputed
+ * from the ledger on demand, so a lost question costs one re-ask, and keeping a
+ * month of someone's financial questions sitting in a browser profile buys
+ * convenience nobody asked for. The audit pack is where the durable copy lives.
  *
- * It still expires, so nothing accumulates indefinitely on a shared machine.
- * One constant to change if a shorter window is ever wanted.
+ * One constant if a longer window is ever wanted.
  */
-export const RETENTION_DAYS = 30;
-const RETENTION_MS = RETENTION_DAYS * 24 * 60 * 60 * 1000;
+export const RETENTION_HOURS = 24;
+const RETENTION_MS = RETENTION_HOURS * 60 * 60 * 1000;
 
 function read(): Conversation[] {
     if (typeof window === "undefined") return [];

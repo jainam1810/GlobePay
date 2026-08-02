@@ -11,8 +11,9 @@ import { usePathname } from "next/navigation";
 import { Send, Loader2, Sparkles, AlertCircle, ChevronRight, ArrowUpRight, History, Plus, Trash2 } from "lucide-react";
 import {
     listConversations, saveConversation, deleteConversation, clearConversations,
-    titleFrom, dayLabel, RETENTION_DAYS, type Conversation,
+    titleFrom, dayLabel, RETENTION_HOURS, type Conversation,
 } from "@/lib/ask-history";
+import Confirm from "@/components/confirm";
 
 type Evidence = {
     name: string; country: string | null; amount: number;
@@ -121,6 +122,9 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
     const [workingIdx, setWorkingIdx] = useState(0);
     const [showHistory, setShowHistory] = useState(false);
     const [history, setHistory] = useState<Conversation[]>([]);
+    // Deleting one conversation is cheap to redo; deleting all of them isn't,
+    // and the button sits next to "Back".
+    const [askClear, setAskClear] = useState(false);
     const convId = useRef<string>("");
     const endRef = useRef<HTMLDivElement>(null);
 
@@ -227,7 +231,7 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
                     <div className="flex items-center gap-2">
                         {history.length > 0 && (
                             <button
-                                onClick={() => { clearConversations(); setHistory([]); }}
+                                onClick={() => setAskClear(true)}
                                 className="text-[11px] text-[var(--text-dim)] hover:text-[var(--danger)] transition">
                                 Delete all
                             </button>
@@ -274,10 +278,22 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
 
                 <div className="border-t border-[var(--border)] p-3 shrink-0">
                     <p className="text-[10px] text-[var(--text-faint)] leading-relaxed">
-                        Kept for {RETENTION_DAYS} days, on this browser only — they won&rsquo;t follow you to another
-                        device, and clearing site data removes them.
+                        Cleared after {RETENTION_HOURS} hours, and saved on this device only — they won&rsquo;t follow
+                        you to another one. Every answer can be asked again; the durable copy of your payments is the
+                        audit pack.
                     </p>
                 </div>
+
+                <Confirm
+                    open={askClear}
+                    onOpenChange={setAskClear}
+                    title="Delete all conversations?"
+                    confirmLabel="Delete all"
+                    danger
+                    body={<>All {history.length} saved conversation{history.length === 1 ? "" : "s"} on this device
+                        will be removed. Your payments are untouched — only the questions go.</>}
+                    onConfirm={() => { clearConversations(); setHistory([]); }}
+                />
             </div>
         );
     }
