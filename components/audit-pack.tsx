@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
     Printer, AlertCircle, Loader2, FileText, Search, ChevronRight, X,
-    ArrowLeft, Sheet, Building2,
+    ArrowLeft, Sheet, Building2, Copy, Check,
 } from "lucide-react";
 import type { SavedRecord } from "@/lib/records";
 import { getTaxRule } from "@/lib/tax-rules";
@@ -349,6 +349,10 @@ function Pack({ records, scope, onBack }: { records: SavedRecord[]; scope?: stri
                     <Stat label="Contractors" value={`${totals.people}`} sub={`${totals.countries} countr${totals.countries === 1 ? "y" : "ies"}`} />
                 </div>
 
+                {/* Withholding only exists when payer and contractor share a
+                    country, so a book of purely cross-border payments has none —
+                    and then Gross, Withheld and Net are three columns saying the
+                    same number. Show the split only when it splits. */}
                 {rows.length === 0 ? (
                     <div className="p-12 text-center">
                         <div className="text-[15px] font-medium">No payments match these filters</div>
@@ -356,7 +360,7 @@ function Pack({ records, scope, onBack }: { records: SavedRecord[]; scope?: stri
                         <button onClick={clearAll} className="no-print mt-4 text-sm text-[var(--accent)] underline underline-offset-2">Clear all filters</button>
                     </div>
                 ) : (
-                    <Table rows={rows} />
+                    <Table rows={rows} showTax={totals.withheld > 0} />
                 )}
 
                 <div className="px-5 md:px-7 py-4 border-t border-[var(--border)] text-[11px] text-[var(--text-faint)] leading-relaxed">
@@ -375,26 +379,46 @@ function Pack({ records, scope, onBack }: { records: SavedRecord[]; scope?: stri
 // sideways scrolling, so secondary columns fold away as width runs out and the
 // drill-down carries them instead. Nothing is ever only available by scrolling.
 
-function Table({ rows }: { rows: SavedRecord[] }) {
+function Table({ rows, showTax }: { rows: SavedRecord[]; showTax: boolean }) {
     return (
         <table className="w-full table-fixed border-collapse text-left">
             <thead className="audit-thead sticky top-0 z-10 bg-[var(--surface-2)]">
                 <tr className="text-[11px] uppercase tracking-wider text-[var(--text-faint)]">
-                    <Th className="w-[86px]">Date</Th>
+                    <Th className="w-[84px]">Date</Th>
                     <Th>Contractor</Th>
-                    <Th className="hidden lg:table-cell w-[130px]">Wallet</Th>
-                    <Th className="hidden md:table-cell w-[112px]">Treatment</Th>
-                    <Th className="w-[96px] text-right">Gross</Th>
-                    <Th className="hidden xl:table-cell w-[96px] text-right">Withheld</Th>
-                    <Th className="w-[96px] text-right">Net</Th>
-                    <Th className="hidden sm:table-cell w-[104px]">Proof</Th>
+                    <Th className="hidden md:table-cell w-[124px]">Invoice</Th>
+                    <Th className="hidden xl:table-cell w-[136px]">Wallet</Th>
+                    <Th className="hidden lg:table-cell w-[110px]">Treatment</Th>
+                    <Th className="w-[100px] text-right">{showTax ? "Gross" : "Amount"}</Th>
+                    {showTax && <Th className="hidden sm:table-cell w-[96px] text-right">Withheld</Th>}
+                    {showTax && <Th className="w-[96px] text-right">Net</Th>}
+                    <Th className="hidden sm:table-cell w-[100px]">Proof</Th>
                     <Th className="w-[34px] no-print" />
                 </tr>
             </thead>
             <tbody>
-                {rows.map((r) => <Row key={r.id} r={r} />)}
+                {rows.map((r) => <Row key={r.id} r={r} showTax={showTax} />)}
             </tbody>
         </table>
+    );
+}
+
+function CopyButton({ value, title }: { value: string; title: string }) {
+    const [copied, setCopied] = useState(false);
+    return (
+        <button
+            onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(value).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1600);
+                });
+            }}
+            title={title}
+            className="no-print shrink-0 text-[var(--text-faint)] hover:text-[var(--text)] transition"
+        >
+            {copied ? <Check size={11} className="text-[var(--accent)]" /> : <Copy size={11} />}
+        </button>
     );
 }
 
@@ -402,7 +426,7 @@ function Th({ children, className = "" }: { children?: React.ReactNode; classNam
     return <th scope="col" className={`px-3 py-2.5 font-normal border-b border-[var(--border)] ${className}`}>{children}</th>;
 }
 
-function Row({ r }: { r: SavedRecord }) {
+function Row({ r, showTax }: { r: SavedRecord; showTax: boolean }) {
     const [open, setOpen] = useState(false);
     const when = new Date(whenOf(r));
     const hasTax = r.withholding_rate !== null && r.withheld_amount !== null;
@@ -422,24 +446,37 @@ function Row({ r }: { r: SavedRecord }) {
                         <span className="mr-1">{flagFor(r.tax_country ?? "")}</span>{r.tax_country ?? "—"}
                         {r.contractor_tax_id && <span className="font-mono"> · {r.contractor_tax_id}</span>}
                     </div>
-                    {/* Wallet rides under the name below lg, and prints there too,
+                    {/* Wallet rides under the name below xl, and prints there too,
                         so it is never lost when the column folds away. */}
-                    <div className="audit-wallet lg:hidden font-mono text-[11px] text-[var(--text-faint)] truncate">
-                        {shortAddr(r.payee_wallet)}
+                    <div className="audit-wallet xl:hidden flex items-center gap-1.5">
+                        <span className="font-mono text-[11px] text-[var(--text-faint)] truncate">{shortAddr(r.payee_wallet)}</span>
+                        {r.payee_wallet && <CopyButton value={r.payee_wallet} title="Copy full wallet address" />}
                     </div>
                 </Td>
-                <Td className="hidden lg:table-cell font-mono text-[11px] text-[var(--text-dim)] truncate">
-                    {shortAddr(r.payee_wallet)}
+                <Td className="hidden md:table-cell font-mono text-[11px] text-[var(--text-dim)] truncate">
+                    {r.invoice_number || <span className="text-[var(--text-faint)]">—</span>}
                 </Td>
-                <Td className="hidden md:table-cell text-[12px] text-[var(--text-dim)] whitespace-nowrap">
+                <Td className="hidden xl:table-cell">
+                    <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-[11px] text-[var(--text-dim)] truncate">{shortAddr(r.payee_wallet)}</span>
+                        {r.payee_wallet && <CopyButton value={r.payee_wallet} title="Copy full wallet address" />}
+                    </div>
+                </Td>
+                <Td className="hidden lg:table-cell text-[12px] text-[var(--text-dim)] whitespace-nowrap">
                     <span className={`dot ${crossBorder ? "dot-ok" : hasTax ? "dot-pending" : "dot-failed"} mr-1.5`} />
                     {crossBorder ? "Cross-border" : hasTax ? "Domestic" : "—"}
                 </Td>
-                <Td className="font-mono text-[13px] text-right whitespace-nowrap">${money(r.amount)}</Td>
-                <Td className="hidden xl:table-cell font-mono text-[13px] text-right whitespace-nowrap text-[var(--text-dim)]">
-                    {hasTax ? `−$${money(r.withheld_amount)}` : "—"}
+                <Td className={`font-mono text-[13px] text-right whitespace-nowrap ${showTax ? "" : "font-medium"}`}>
+                    ${money(r.amount)}
                 </Td>
-                <Td className="font-mono text-[13px] text-right whitespace-nowrap font-medium">${money(net)}</Td>
+                {showTax && (
+                    <Td className="hidden sm:table-cell font-mono text-[13px] text-right whitespace-nowrap text-[var(--text-dim)]">
+                        {hasTax ? `−$${money(r.withheld_amount)}` : "—"}
+                    </Td>
+                )}
+                {showTax && (
+                    <Td className="font-mono text-[13px] text-right whitespace-nowrap font-medium">${money(net)}</Td>
+                )}
                 <Td className="hidden sm:table-cell whitespace-nowrap">
                     {r.tx_hash ? (
                         <a href={`https://sepolia.basescan.org/tx/${r.tx_hash}`} target="_blank" rel="noreferrer"
@@ -461,9 +498,15 @@ function Row({ r }: { r: SavedRecord }) {
                 they've found the row they care about. */}
             {open && (
                 <tr className="audit-detail bg-[var(--surface-2)] border-b border-[var(--border)]">
-                    <td colSpan={9} className="px-3 md:px-4 py-4">
+                    <td colSpan={showTax ? 10 : 8} className="px-3 md:px-4 py-4">
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                            <Detail label="Wallet paid" value={r.payee_wallet ?? "—"} mono breakAll />
+                            <div>
+                                <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)] mb-1">Wallet paid</div>
+                                <div className="flex items-start gap-1.5">
+                                    <span className="font-mono text-[12px] text-[var(--text)] break-all">{r.payee_wallet ?? "—"}</span>
+                                    {r.payee_wallet && <CopyButton value={r.payee_wallet} title="Copy full wallet address" />}
+                                </div>
+                            </div>
                             <Detail label="Local value"
                                 value={r.local_amount !== null && r.local_currency ? `${money(r.local_amount)} ${r.local_currency}` : "—"}
                                 sub={r.fx_rate ? `rate ${Number(r.fx_rate).toFixed(4)}, pinned ${r.fx_pinned_at ?? "at pay time"}` : undefined} />

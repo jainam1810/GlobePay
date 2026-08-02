@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, History, Scale, FileText } from "lucide-react";
+import { Home, History, Scale, FileText, MessagesSquare } from "lucide-react";
 import ConnectButton from "@/components/connect-button";
 import SignOutButton from "@/components/sign-out-button";
 import { flagFor } from "@/lib/contractor-types";
@@ -11,6 +11,7 @@ const nav = [
     { href: "/portal/payments", label: "Payments", icon: History },
     { href: "/portal/ledger", label: "Tax ledger", icon: Scale },
     { href: "/portal/audit-pack", label: "Audit pack", icon: FileText },
+    { href: "/portal/messages", label: "Messages", icon: MessagesSquare },
 ];
 
 export default function PortalShell({ children, companyName, homeCountry, email }:
