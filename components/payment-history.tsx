@@ -3,6 +3,7 @@
 // The /api/payments route scopes by session (admin: all clients + names;
 // client: only their own), so this component works in both worlds.
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { History, CheckCircle2, ExternalLink, Loader2, AlertCircle, Copy, Check, ChevronDown, DownloadCloud, Send } from "lucide-react";
 import type { SavedPayment } from "@/lib/payments";
 import { truncate, flagFor, avatarFor, currencyForCountry } from "@/lib/contractor-types";
@@ -16,6 +17,16 @@ export default function PaymentHistory({ allowImport = false }: { allowImport?: 
     const [importing, setImporting] = useState(false);
     const [importNote, setImportNote] = useState<string | null>(null);
     const [client, setClient] = useState<string>(ALL);
+
+    // ?highlight=0xabc,0xdef — arrived here from the assistant or a shared link.
+    // Those payments are lifted to the top and marked, because someone who
+    // didn't scroll here has no idea which row they were sent to find.
+    const params = useSearchParams();
+    const highlighted = useMemo(() => {
+        const raw = params?.get("highlight");
+        if (!raw) return new Set<string>();
+        return new Set(raw.split(",").map((h) => h.trim().toLowerCase()).filter(Boolean));
+    }, [params]);
 
     function load() {
         fetch("/api/payments")
@@ -31,10 +42,17 @@ export default function PaymentHistory({ allowImport = false }: { allowImport?: 
         () => [...new Set((payments || []).map((p) => p.client_name).filter((n): n is string => !!n))].sort(),
         [payments],
     );
-    const visible = useMemo(
-        () => (payments || []).filter((p) => client === ALL || p.client_name === client),
-        [payments, client],
-    );
+    const isHit = (p: SavedPayment) => highlighted.has((p.tx_hash ?? "").toLowerCase());
+
+    const visible = useMemo(() => {
+        const list = (payments || []).filter((p) => client === ALL || p.client_name === client);
+        if (highlighted.size === 0) return list;
+        // Stable partition: the linked payments first, everything else in its
+        // existing order underneath. Sorting the whole list would scramble the
+        // newest-first ordering people rely on.
+        return [...list.filter(isHit), ...list.filter((p) => !isHit(p))];
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [payments, client, highlighted]);
 
     async function backfill() {
         setImporting(true); setImportNote(null);
@@ -99,7 +117,7 @@ export default function PaymentHistory({ allowImport = false }: { allowImport?: 
                         {visible.length}{visible.length !== payments.length && ` of ${payments.length}`} payment{payments.length === 1 ? "" : "s"} · newest first
                     </div>
                     <div className="fade-up mt-3 space-y-3">
-                        {visible.map((p) => <PaymentRow key={p.id} p={p} />)}
+                        {visible.map((p) => <PaymentRow key={p.id} p={p} found={isHit(p)} />)}
                         {visible.length === 0 && (
                             <div className="card p-8 text-center text-sm text-[var(--text-dim)]">No payments for {client}.</div>
                         )}
@@ -137,8 +155,10 @@ const fmtFeeEth = (f: number) => `${f} ETH`;
 const TESTNET_NOTE =
     "Testnet demo: the chain moved a flat 1 USDC per person. This is the real USD figure from the payroll run — in production that exact amount is what gets sent.";
 
-function PaymentRow({ p }: { p: SavedPayment }) {
-    const [open, setOpen] = useState(false);
+function PaymentRow({ p, found = false }: { p: SavedPayment; found?: boolean }) {
+    // A payment someone was sent to opens on arrival — they came to look at it,
+    // so making them click again is a step for nothing.
+    const [open, setOpen] = useState(found);
     const when = p.paid_at ? new Date(p.paid_at) : new Date(p.created_at);
     const date = when.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
     const time = when.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
@@ -153,7 +173,13 @@ function PaymentRow({ p }: { p: SavedPayment }) {
     const total = hasIntended ? p.intended_total! : p.total_amount;
 
     return (
-        <div className="card overflow-hidden">
+        <div className={`card overflow-hidden ${found ? "found scroll-mt-24" : ""}`}
+            ref={(el) => {
+                // Bring the first linked payment into view. Without this the row
+                // is at the top of the list but the page may still be scrolled
+                // wherever the browser restored it.
+                if (found && el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+            }}>
             <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-4 p-5 text-left hover:bg-[var(--surface-2)] transition-colors">
                 <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--accent-soft)] border border-[var(--accent-line)] text-[var(--accent)]">
                     <Send size={16} />

@@ -1,4 +1,5 @@
 "use client";
+import { Suspense } from "react";
 import PaymentHistory from "@/components/payment-history";
 
 export default function AdminPaymentsPage() {
@@ -9,7 +10,11 @@ export default function AdminPaymentsPage() {
                 <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight mt-2">Payments</h1>
                 <p className="text-[var(--text-dim)] mt-2 max-w-md">Every payroll across every client — each tagged with its client and backed by on-chain proof.</p>
             </div>
-            <PaymentHistory allowImport />
+            {/* PaymentHistory reads ?highlight= to surface a linked payment, and
+                useSearchParams needs a boundary to suspend against. */}
+            <Suspense fallback={null}>
+                <PaymentHistory allowImport />
+            </Suspense>
         </div>
     );
 }

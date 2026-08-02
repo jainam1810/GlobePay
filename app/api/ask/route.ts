@@ -129,10 +129,19 @@ export async function POST(req: Request) {
                 g.sum += Number(rec.amount || 0); g.n++;
                 groups.set(k, g);
             }
-            const lines = [...groups.entries()]
-                .sort((a, b) => b[1].sum - a[1].sum)
-                .map(([k, g]) => `• ${k} — ${money(g.sum)} across ${plural(g.n, "payment")}`);
-            answer = `${money(total)} across ${plural(count, "payment")}${where}${over}:\n${lines.join("\n")}`;
+            const ranked = [...groups.entries()].sort((a, b) => b[1].sum - a[1].sum);
+            const [topName, topVal] = ranked[0];
+
+            // Lead with the point, then the working. Someone asking "which
+            // freelancer did we pay the most" wants a name, not a table they
+            // have to scan to find the name themselves.
+            const headline =
+                q.groupBy === "contractor" ? `${topName} — ${money(topVal.sum)} — is who you've paid the most${where}${over}.`
+                    : q.groupBy === "country" ? `${topName} is your largest corridor${over} — ${money(topVal.sum)} of ${money(total)}.`
+                        : `${topName} was the biggest${over} — ${money(topVal.sum)} of ${money(total)}.`;
+
+            const lines = ranked.map(([k, g]) => `• ${k} — ${money(g.sum)} across ${plural(g.n, "payment")}`);
+            answer = `${headline}\n\n${money(total)} across ${plural(count, "payment")} in total:\n${lines.join("\n")}`;
         } else if (q.metric === "count") {
             answer = `${plural(count, "payment")}${where}${over}, totalling ${money(total)}.`;
         } else if (q.metric === "average") {
