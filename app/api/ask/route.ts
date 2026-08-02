@@ -1,177 +1,299 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { getSessionInfo } from "@/lib/auth";
-import { askSchema, resolvePeriod, type AskQuery } from "@/lib/ask-schema";
+import { toolDeclarations, SYSTEM_BRIEF } from "@/lib/ask-tools";
 
-const MODEL = "gemini-2.5-flash";
+// Agentic assistant over the payment ledger.
+//
+// The loop is the standard one: declare tools → the model returns functionCall
+// parts → we execute them → the results go back → the model writes the answer,
+// or asks for more. It can call several tools in one turn, which is how a
+// message containing two questions gets two answers.
+//
+// The model owns language, ambiguity, decomposition and the reply. Code owns
+// every number. That split is not a limitation of the model — it is what makes
+// the figures auditable, and it is what commercial systems do for exactly this
+// reason.
 
-const PROMPT = `You turn a question about payment history into a filter. You do NOT answer it.
+// A chain, not a model, and overridable without a deploy.
+//
+// Google cut the free tier to 20 requests per day *per model* (gemini-2.5-flash,
+// Dec 2025), and one tool-calling question spends two or three of them. The quota
+// is counted per model, so falling down the list when one is exhausted is what
+// keeps a demo alive on a free key. First entry is the one that answers normally:
+// 3.5-flash is ~2s where 3.6-flash takes ~30s thinking, and both decompose a
+// multi-part question correctly. On a paid key the chain simply never advances.
+const MODELS = (process.env.GEMINI_MODEL || "gemini-3.5-flash,gemini-3.6-flash,gemini-3.1-flash-lite")
+    .split(",").map((m) => m.trim()).filter(Boolean);
+const MAX_ROUNDS = 5;          // a stuck agent stops rather than looping on the bill
+const EVIDENCE_CAP = 50;
 
-You will never be shown any amounts, and you must never write one. Your entire job
-is to decide: what is being measured, over what period, for which country or person,
-and whether a breakdown was asked for. Code does the counting.
+/** Seconds Google asks us to wait, from its RetryInfo. */
+function retryAfter(body: string) {
+    const m = /"retryDelay":\s*"(\d+(?:\.\d+)?)s"/.exec(body);
+    return m ? Math.min(Number(m[1]), 12) : null;
+}
+/** A per-day exhaustion is worth saying plainly; a per-minute one is worth waiting out. */
+const isDailyQuota = (body: string) => /PerDay/i.test(body);
 
-Rules:
-- period: use a symbolic value ("last_year", "this_quarter", …) whenever the question
-  uses a relative phrase. Only use "custom" when an explicit date, month or year is
-  named, and then fill from/to as YYYY-MM-DD.
-- If no period is mentioned at all, use "all_time".
-- country: only Nigeria, Argentina or the Philippines are possible. Map demonyms and
-  adjectives ("Argentinian", "Filipino", "Nigerian devs") to the country name.
-- groupBy: set it when the question implies a breakdown — "per country", "by month",
-  "which contractor", "split by". Otherwise "none".
-- metric: "total" for money, "count" for how many payments, "average", "largest".
-  "How much did we send" is total. "How many payments" is count.
-- unanswerable: fill this in ONLY if the question cannot be answered from records of
-  payments already made — for example tax advice, forecasts, or anything about money
-  that hasn't been paid yet. Leave it empty for anything answerable.`;
+type Row = Record<string, unknown> & {
+    amount: number | null;
+    payee_name: string | null;
+    tax_country: string | null;
+    client_name?: string | null;
+    invoice_number?: string | null;
+    tx_hash?: string | null;
+    paid_at?: string | null;
+    invoice_date: string | null;
+    created_at: string;
+};
 
-const money = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const plural = (n: number, s: string) => `${n} ${s}${n === 1 ? "" : "s"}`;
+const money = (n: number) => Number(n.toFixed(2));
+const dayOf = (r: Row) => String(r.paid_at ?? r.invoice_date ?? r.created_at).slice(0, 10);
+const loose = (a: string, b: string) => {
+    const x = a.toLowerCase().replace(/[^a-z]/g, ""), y = b.toLowerCase().replace(/[^a-z]/g, "");
+    return !!x && !!y && (x.includes(y) || y.includes(x));
+};
+
+/* ── the tools, executed in code ─────────────────────────────────────────── */
+
+function describeData(rows: Row[]) {
+    const days = rows.map(dayOf).sort();
+    return {
+        countries: [...new Set(rows.map((r) => r.tax_country).filter(Boolean))],
+        contractors: [...new Set(rows.map((r) => r.payee_name).filter(Boolean))],
+        clients: [...new Set(rows.map((r) => r.client_name).filter(Boolean))],
+        earliest: days[0] ?? null,
+        latest: days[days.length - 1] ?? null,
+        totalPayments: rows.length,
+    };
+}
+
+function queryPayments(rows: Row[], a: Record<string, unknown>) {
+    const from = typeof a.from === "string" ? a.from.slice(0, 10) : null;
+    const to = typeof a.to === "string" ? a.to.slice(0, 10) : null;
+    const country = typeof a.country === "string" ? a.country : null;
+    const contractor = typeof a.contractor === "string" ? a.contractor : null;
+    const client = typeof a.client === "string" ? a.client : null;
+    const groupBy = typeof a.groupBy === "string" ? a.groupBy : "none";
+
+    // Calendar-day strings throughout — invoice_date is a DATE and mixing it
+    // with local-midnight Date objects drops payments made on the 1st.
+    const hit = rows.filter((r) => {
+        const d = dayOf(r);
+        if (from && d < from) return false;
+        if (to && d > to) return false;
+        if (country && (r.tax_country ?? "").toLowerCase() !== country.toLowerCase()) return false;
+        if (contractor && !loose(r.payee_name ?? "", contractor)) return false;
+        if (client && !loose(r.client_name ?? "", client)) return false;
+        return true;
+    });
+
+    const total = hit.reduce((s, r) => s + Number(r.amount || 0), 0);
+    const result: Record<string, unknown> = {
+        label: a.label ?? "",
+        total: money(total),
+        payments: hit.length,
+        contractors: new Set(hit.map((r) => r.payee_name)).size,
+        countries: new Set(hit.map((r) => r.tax_country).filter(Boolean)).size,
+        average: hit.length ? money(total / hit.length) : 0,
+        filters: { from, to, country, contractor, client },
+    };
+
+    if (hit.length) {
+        const largest = hit.reduce((x, y) => (Number(y.amount) > Number(x.amount) ? y : x));
+        result.largest = { contractor: largest.payee_name, amount: money(Number(largest.amount)), date: dayOf(largest) };
+    }
+
+    if (groupBy !== "none") {
+        const key = (r: Row) =>
+            groupBy === "country" ? r.tax_country ?? "Unspecified"
+                : groupBy === "contractor" ? r.payee_name ?? "Unknown"
+                    : groupBy === "client" ? r.client_name ?? "Unassigned"
+                        : dayOf(r).slice(0, 7);
+        const m = new Map<string, { total: number; payments: number }>();
+        for (const r of hit) {
+            const k = key(r);
+            const g = m.get(k) ?? { total: 0, payments: 0 };
+            g.total += Number(r.amount || 0); g.payments++;
+            m.set(k, g);
+        }
+        result.breakdown = [...m.entries()]
+            .sort((x, y) => y[1].total - x[1].total)
+            .map(([k, g]) => ({ key: k, total: money(g.total), payments: g.payments }));
+    }
+
+    return { result, matched: hit };
+}
+
+/* ── the agentic loop ────────────────────────────────────────────────────── */
+
+type Part = Record<string, unknown>;
+type Content = { role: "user" | "model"; parts: Part[] };
 
 export async function POST(req: Request) {
     try {
         const s = await getSessionInfo();
         if (!s) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
 
-        const { question, clientId: asked } = await req.json();
+        const { question, history } = await req.json();
         if (!question?.trim()) return NextResponse.json({ error: "Ask a question" }, { status: 400 });
 
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) return NextResponse.json({ error: "GEMINI_API_KEY not configured on server" }, { status: 500 });
 
-        // ── 1. the model turns the sentence into a filter ────────────────────
-        const r = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
-            {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: `${PROMPT}\n\nToday is ${new Date().toISOString().slice(0, 10)}.\n\nQuestion: ${question}` }] }],
-                    generationConfig: { responseMimeType: "application/json", responseSchema: askSchema, temperature: 0 },
-                }),
-            },
-        );
-        // Distinguish "we're throttled" from "that sentence made no sense".
-        // Telling someone to rephrase a perfectly good question when the real
-        // problem is a rate limit sends them in circles — and it happens in
-        // exactly the moment they're relying on this in front of other people.
-        if (r.status === 429) {
-            return NextResponse.json(
-                { error: "Too many questions at once — give it a minute and ask again." },
-                { status: 429 },
-            );
-        }
-        if (!r.ok) {
-            return NextResponse.json(
-                { error: "The assistant is unavailable right now. Your payment records are unaffected — the audit pack has the same figures." },
-                { status: 502 },
-            );
-        }
-        const j = await r.json();
-        const text = j?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!text) return NextResponse.json({ error: "Couldn't understand that — try rephrasing it." }, { status: 502 });
-
-        const q = JSON.parse(text) as AskQuery;
-        if (q.unanswerable?.trim()) {
-            return NextResponse.json({ answer: q.unanswerable.trim(), query: q, rows: 0 });
-        }
-
-        // ── 2. code fetches and filters. Scoped by session, as everywhere. ───
+        // Scoped by session, exactly as everywhere else — a client's assistant
+        // can only ever see that client's payments.
         const supabase = getSupabase();
         let sel = supabase.from("records").select("*");
         if (s.role !== "globepay_admin") sel = sel.eq("client_id", s.clientId!);
-        else if (asked) sel = sel.eq("client_id", asked);
         const { data, error } = await sel;
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        const rows = (data || []) as Row[];
 
-        const { startStr, endStr, label } = resolvePeriod(q.period, q.from, q.to);
-        const when = (rec: { paid_at?: string | null; invoice_date: string | null; created_at: string }) =>
-            new Date(rec.paid_at ?? rec.invoice_date ?? rec.created_at);
-        // Compare calendar days as strings — see resolvePeriod. Mixing a
-        // UTC-parsed DATE column with local-midnight boundaries silently drops
-        // payments made on the first of the month west of Greenwich.
-        const day = (rec: { paid_at?: string | null; invoice_date: string | null; created_at: string }) =>
-            (rec.paid_at ?? rec.invoice_date ?? rec.created_at).slice(0, 10);
+        // Prior turns give it context — "and Argentina only?" needs the question
+        // before it. Trimmed to the last few so the window stays small.
+        const opening: Content[] = [];
+        for (const h of (Array.isArray(history) ? history : []).slice(-6)) {
+            if (h?.q) opening.push({ role: "user", parts: [{ text: String(h.q) }] });
+            if (h?.a) opening.push({ role: "model", parts: [{ text: String(h.a) }] });
+        }
+        opening.push({ role: "user", parts: [{ text: question }] });
 
-        const rows = (data || []).filter((rec) => {
-            const d = day(rec);
-            if (startStr && d < startStr) return false;
-            if (endStr && d > endStr) return false;
-            if (q.country && (rec.tax_country ?? "").toLowerCase() !== q.country.toLowerCase()) return false;
-            if (q.contractor) {
-                const a = (rec.payee_name ?? "").toLowerCase().replace(/[^a-z]/g, "");
-                const b = q.contractor.toLowerCase().replace(/[^a-z]/g, "");
-                if (!a.includes(b) && !b.includes(a)) return false;
+        let evidence: Row[] = [];
+        let calls: { name: string; args: Record<string, unknown> }[] = [];
+        // The figures as computed, kept so the UI can render them from the numbers
+        // themselves rather than re-reading them out of the model's prose.
+        let figures: Record<string, unknown>[] = [];
+        let answer = "";
+        let fatal: NextResponse | null = null;
+
+        // Each model gets the question from the top.
+        //
+        // A half-finished tool-calling conversation cannot be handed to a
+        // different model: Gemini 3 requires the thought_signature it attached to
+        // its own function calls, and rejects the request outright if one is
+        // missing or foreign. So a switch means starting over, which costs a
+        // couple of seconds and is why the chain only advances on failures that
+        // will not clear on their own.
+        for (let modelIdx = 0; modelIdx < MODELS.length; modelIdx++) {
+            const model = MODELS[modelIdx];
+            const contents: Content[] = opening.map((c) => ({ ...c, parts: [...c.parts] }));
+            evidence = []; calls = []; figures = []; answer = "";
+
+            const payload = () => JSON.stringify({
+                systemInstruction: {
+                    parts: [{ text: `${SYSTEM_BRIEF}\n\nToday is ${new Date().toISOString().slice(0, 10)}. The account is ${s.role === "globepay_admin" ? "GlobePay staff, who can see every client" : "a client company, who can see only their own payments"}.` }],
+                },
+                contents,
+                tools: [{ functionDeclarations: toolDeclarations }],
+                generationConfig: { temperature: 0 },
+            });
+
+            let tryNextModel = false;
+
+            for (let round = 0; round < MAX_ROUNDS; round++) {
+                // One question costs several requests — that is what tool calling
+                // is — so a burst can trip the per-minute quota mid-answer. Wait
+                // that one out; a spent daily quota or an overloaded model won't
+                // clear, so those fall through to the next model instead.
+                let r: Response, body = "", waited = 0;
+                for (;;) {
+                    r = await fetch(
+                        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+                        { method: "POST", headers: { "Content-Type": "application/json" }, body: payload() },
+                    );
+                    if (r.ok) break;
+                    body = await r.text();
+                    if (r.status !== 429) break;
+                    const wait = isDailyQuota(body) ? null : retryAfter(body);
+                    if (wait === null || waited >= 1) break;
+                    waited++;
+                    await new Promise((res) => setTimeout(res, wait * 1000 + 500));
+                }
+
+                if (!r.ok) {
+                    const exhausted = r.status === 429 && isDailyQuota(body);
+                    const overloaded = r.status === 503 || r.status === 500;
+                    if ((exhausted || overloaded) && modelIdx + 1 < MODELS.length) {
+                        console.error(`[ask] ${model} HTTP ${r.status} — falling back to ${MODELS[modelIdx + 1]}`);
+                        tryNextModel = true;
+                        break;
+                    }
+                    if (r.status === 429) {
+                        fatal = NextResponse.json({
+                            error: isDailyQuota(body)
+                                ? "The assistant has used up today's AI quota. Your payments and the audit pack are unaffected — every figure it quotes is in there too."
+                                : "That was a lot of questions at once — give it a few seconds and ask again.",
+                        }, { status: 429 });
+                    } else {
+                        // The user gets a calm sentence; the operator gets the reason.
+                        console.error(`[ask] ${model} HTTP ${r.status}: ${body.slice(0, 400)}`);
+                        fatal = NextResponse.json(
+                            { error: "The assistant is unavailable right now. Your payment records are unaffected — the audit pack has the same figures." },
+                            { status: 502 });
+                    }
+                    break;
+                }
+
+                const j = await r.json();
+                const parts: Part[] = j?.candidates?.[0]?.content?.parts ?? [];
+                const fnCalls = parts.filter((p) => p.functionCall) as { functionCall: { name: string; args: Record<string, unknown> } }[];
+
+                if (fnCalls.length === 0) {
+                    answer = parts.map((p) => (typeof p.text === "string" ? p.text : "")).join("").trim();
+                    break;
             }
-            return true;
-        });
 
-        // ── 3. every figure below is computed here, never generated ──────────
-        const total = rows.reduce((acc, rec) => acc + Number(rec.amount || 0), 0);
-        const count = rows.length;
-        const scope = [q.country, q.contractor].filter(Boolean).join(", ");
-        const where = scope ? ` to ${scope}` : "";
-        const over = label === "all time" ? " in total" : ` in ${label}`;
-
-        let answer: string;
-        if (count === 0) {
-            answer = `No payments${where}${over}.`;
-        } else if (q.groupBy !== "none") {
-            const key = (rec: Record<string, unknown>) =>
-                q.groupBy === "country" ? (rec.tax_country as string) || "Unspecified"
-                    : q.groupBy === "contractor" ? (rec.payee_name as string) || "Unknown"
-                        : when(rec as never).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
-
-            const groups = new Map<string, { sum: number; n: number }>();
-            for (const rec of rows) {
-                const k = key(rec);
-                const g = groups.get(k) ?? { sum: 0, n: 0 };
-                g.sum += Number(rec.amount || 0); g.n++;
-                groups.set(k, g);
+            // Several calls can come back at once — that's how two questions in
+            // one message get answered in one round.
+            contents.push({ role: "model", parts });
+            const responses: Part[] = [];
+            for (const { functionCall } of fnCalls) {
+                const { name, args = {} } = functionCall;
+                calls.push({ name, args });
+                let payload: unknown;
+                if (name === "describe_data") {
+                    payload = describeData(rows);
+                } else if (name === "query_payments") {
+                    const { result, matched } = queryPayments(rows, args);
+                    payload = result;
+                    figures.push(result);
+                    for (const m of matched) if (!evidence.includes(m)) evidence.push(m);
+                } else {
+                    payload = { error: `Unknown tool ${name}` };
+                }
+                responses.push({ functionResponse: { name, response: payload } });
             }
-            const ranked = [...groups.entries()].sort((a, b) => b[1].sum - a[1].sum);
-            const [topName, topVal] = ranked[0];
+            contents.push({ role: "user", parts: responses });
+            }
 
-            // Lead with the point, then the working. Someone asking "which
-            // freelancer did we pay the most" wants a name, not a table they
-            // have to scan to find the name themselves.
-            const headline =
-                q.groupBy === "contractor" ? `${topName} — ${money(topVal.sum)} — is who you've paid the most${where}${over}.`
-                    : q.groupBy === "country" ? `${topName} is your largest corridor${over} — ${money(topVal.sum)} of ${money(total)}.`
-                        : `${topName} was the biggest${over} — ${money(topVal.sum)} of ${money(total)}.`;
-
-            const lines = ranked.map(([k, g]) => `• ${k} — ${money(g.sum)} across ${plural(g.n, "payment")}`);
-            answer = `${headline}\n\n${money(total)} across ${plural(count, "payment")} in total:\n${lines.join("\n")}`;
-        } else if (q.metric === "count") {
-            answer = `${plural(count, "payment")}${where}${over}, totalling ${money(total)}.`;
-        } else if (q.metric === "average") {
-            answer = `${money(total / count)} on average${where}${over}, across ${plural(count, "payment")}.`;
-        } else if (q.metric === "largest") {
-            const top = [...rows].sort((a, b) => Number(b.amount) - Number(a.amount))[0];
-            answer = `The largest was ${money(Number(top.amount))} to ${top.payee_name}${top.tax_country ? ` in ${top.tax_country}` : ""}${over}.`;
-        } else {
-            const people = new Set(rows.map((rec) => rec.payee_name)).size;
-            answer = `${money(total)}${where}${over}, across ${plural(count, "payment")} to ${plural(people, "contractor")}.`;
+            if (fatal) return fatal;
+            if (!tryNextModel) break;   // this model answered, or gave up on its own terms
         }
 
-        // Ship the rows the answer was computed from. A total nobody can open is
-        // the kind of number that gets challenged in a meeting and can't be
-        // defended; this makes every figure traceable to named payments.
-        const evidence = [...rows]
-            .sort((a, b) => +when(b) - +when(a))
-            .slice(0, 50)
-            .map((rec) => ({
-                name: rec.payee_name,
-                country: rec.tax_country,
-                amount: Number(rec.amount || 0),
-                date: when(rec).toISOString().slice(0, 10),
-                invoice: rec.invoice_number ?? null,
-                tx: rec.tx_hash ?? null,
+        if (!answer) {
+            answer = "I couldn't work that one out — try asking it a different way.";
+        }
+
+        const shown = evidence
+            .sort((a, b) => (dayOf(a) < dayOf(b) ? 1 : -1))
+            .slice(0, EVIDENCE_CAP)
+            .map((r) => ({
+                name: r.payee_name, country: r.tax_country,
+                amount: Number(r.amount || 0), date: dayOf(r),
+                invoice: r.invoice_number ?? null, tx: r.tx_hash ?? null,
             }));
 
         return NextResponse.json({
-            answer, query: q, rows: count, total, period: label,
-            evidence, truncated: count > evidence.length,
+            answer,
+            evidence: shown,
+            truncated: evidence.length > shown.length,
+            rows: evidence.length,
+            // What it actually did, so a surprising answer can be traced to the
+            // query behind it rather than argued with.
+            calls: calls.map((c) => ({ name: c.name, ...c.args })),
+            figures,
         });
     } catch (e) {
         return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 500 });

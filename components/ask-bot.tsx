@@ -1,13 +1,14 @@
 "use client";
 // Ask a question about payment history in plain English.
 //
-// The model only parses the question into a filter; every number in every answer
-// is computed server-side from the records. That's why each answer carries a
-// footer saying exactly what was counted — in a stakeholder meeting, a figure
-// you can't trace is worse than no figure.
+// The model reads the question, decides what to look up, and writes the reply;
+// every number in every answer is computed server-side from the records. That's
+// why each answer carries a footer saying exactly what was counted — in a
+// stakeholder meeting, a figure you can't trace is worse than no figure.
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import ReactMarkdown from "react-markdown";
 import { Send, Loader2, Sparkles, AlertCircle, ChevronRight, ArrowUpRight, History, Plus, Trash2 } from "lucide-react";
 import {
     listConversations, saveConversation, deleteConversation, clearConversations,
@@ -20,6 +21,16 @@ type Evidence = {
     date: string; invoice: string | null; tx: string | null;
 };
 
+/** A figure exactly as the server computed it — never re-derived on the client. */
+type Figure = {
+    label?: string;
+    total: number;
+    payments: number;
+    contractors?: number;
+    average?: number;
+    breakdown?: { key: string; total: number; payments: number }[];
+};
+
 type Turn = {
     q: string;
     at: number;          // asked
@@ -28,6 +39,7 @@ type Turn = {
     scope?: string;
     error?: string;
     evidence?: Evidence[];
+    figures?: Figure[];
     truncated?: boolean;
 };
 
@@ -43,6 +55,87 @@ const WORKING = [
 
 const clock = (ms: number) =>
     new Date(ms).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+
+const usd = (n: number) =>
+    n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
+
+/**
+ * The computed figures, drawn from the numbers rather than read out of the prose.
+ *
+ * Two cases earn the space. A message containing several questions gets one tile
+ * per answer, so the figures sit side by side instead of buried in a paragraph —
+ * that was the complaint. A breakdown gets bars, because ranking four countries
+ * by eye down a bullet list is work the chart should be doing.
+ */
+function Figures({ figures }: { figures: Figure[] }) {
+    const bars = figures.find((f) => f.breakdown && f.breakdown.length > 1);
+    const tiles = figures.length > 1 ? figures : [];
+    if (!tiles.length && !bars) return null;
+
+    // One hue, length carries the magnitude. Scaled to the largest bar, not to
+    // the total, so small values stay visible.
+    const max = bars ? Math.max(...bars.breakdown!.map((b) => b.total)) : 0;
+
+    return (
+        <div className="mt-3 space-y-3">
+            {tiles.length > 0 && (
+                <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(tiles.length, 3)}, minmax(0,1fr))` }}>
+                    {tiles.map((f, i) => (
+                        <div key={i} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
+                            <div className="text-[10px] uppercase tracking-wide text-[var(--text-faint)] truncate" title={f.label}>
+                                {f.label || "Total"}
+                            </div>
+                            <div className="text-[15px] font-medium tabular-nums mt-0.5">{usd(f.total)}</div>
+                            <div className="text-[10px] text-[var(--text-faint)]">
+                                {f.payments} payment{f.payments === 1 ? "" : "s"}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {bars && (
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5">
+                    <div className="text-[10px] uppercase tracking-wide text-[var(--text-faint)] mb-2">
+                        {bars.label || "Breakdown"}
+                    </div>
+                    <div className="space-y-1.5">
+                        {bars.breakdown!.map((b) => (
+                            <div key={b.key} className="grid grid-cols-[minmax(60px,88px)_1fr_auto] items-center gap-2">
+                                <span className="text-[11px] text-[var(--text-dim)] truncate" title={b.key}>{b.key}</span>
+                                <span className="h-2 rounded-full bg-[var(--surface-2)] overflow-hidden">
+                                    <span className="block h-full rounded-full bg-[var(--accent)]"
+                                        style={{ width: `${max ? Math.max((b.total / max) * 100, 2) : 0}%` }} />
+                                </span>
+                                <span className="text-[11px] tabular-nums text-[var(--text)]">{usd(b.total)}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+/** The model writes prose with the occasional list; render it rather than
+ *  showing people raw asterisks. Headings are stripped — this is a chat bubble. */
+function Answer({ text }: { text: string }) {
+    return (
+        <div className="text-[14px] leading-relaxed space-y-2 [&_ul]:space-y-1 [&_ul]:my-1 [&_li]:ml-4 [&_li]:list-disc [&_strong]:font-medium [&_code]:text-[12px]">
+            <ReactMarkdown
+                components={{
+                    // A chat reply has no document structure to carry.
+                    h1: ({ children }) => <p className="font-medium">{children}</p>,
+                    h2: ({ children }) => <p className="font-medium">{children}</p>,
+                    h3: ({ children }) => <p className="font-medium">{children}</p>,
+                    a: ({ children }) => <span>{children}</span>,
+                }}
+            >
+                {text}
+            </ReactMarkdown>
+        </div>
+    );
+}
 
 function Evidence({ rows, truncated, scope, paymentsHref }: {
     rows: Evidence[]; truncated: boolean; scope?: string; paymentsHref: string;
@@ -199,7 +292,12 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
         try {
             const r = await fetch("/api/ask", {
                 method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ question: text, clientId }),
+                body: JSON.stringify({
+                    question: text, clientId,
+                    // Prior turns, so "…and Argentina only?" knows what "and"
+                    // refers to. Trimmed server-side.
+                    history: turns.filter((t) => t.a).map((t) => ({ q: t.q, a: t.a })),
+                }),
             });
             const j = await r.json();
             setTurns((t) => {
@@ -209,9 +307,17 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
                 if (!r.ok) last.error = j?.error || "Couldn't answer that";
                 else {
                     last.a = j.answer;
-                    // What the filter actually matched, so the number is traceable.
-                    last.scope = `${j.rows} record${j.rows === 1 ? "" : "s"} · ${j.period}`;
+                    // What it actually queried, so a surprising answer can be
+                    // traced to the question behind it rather than argued with.
+                    const labels = (j.calls ?? [])
+                        .filter((c: { name: string }) => c.name === "query_payments")
+                        .map((c: { label?: string }) => c.label).filter(Boolean);
+                    last.scope = [
+                        `${j.rows} record${j.rows === 1 ? "" : "s"}`,
+                        labels.length ? labels.join(" · ") : null,
+                    ].filter(Boolean).join(" · ");
                     last.evidence = j.evidence ?? [];
+                    last.figures = j.figures ?? [];
                     last.truncated = !!j.truncated;
                 }
                 return next;
@@ -361,7 +467,11 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
                             </div>
                         ) : t.a ? (
                             <div className="max-w-[92%] rounded-2xl rounded-bl-sm bg-[var(--surface-2)] border border-[var(--border)] px-3.5 py-3">
-                                <div className="text-[14px] whitespace-pre-wrap leading-relaxed">{t.a}</div>
+                                <Answer text={t.a} />
+
+                                {/* Drawn from the computed figures, not parsed back
+                                    out of the sentence above them. */}
+                                {t.figures && t.figures.length > 0 && <Figures figures={t.figures} />}
 
                                 {/* The payments the figure was computed from. A total
                                     nobody can open is a total that gets challenged. */}
