@@ -327,6 +327,34 @@ body {
   animation-delay: 400ms;
 }
 
+/* A payment arrived at from somewhere else — the assistant, a link — needs to
+   announce itself, because the reader didn't scroll to it and doesn't yet know
+   which row is theirs. It pulses three times and then stops: enough to catch the
+   eye, not so much that it becomes wallpaper you have to ignore while reading. */
+@keyframes foundPulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 1px var(--accent-line), 0 0 0 0 transparent;
+    }
+
+    50% {
+        box-shadow: 0 0 0 1px var(--accent), 0 0 26px -2px var(--accent-glow);
+    }
+}
+
+.found {
+    border-color: var(--accent) !important;
+    animation: foundPulse 1.6s var(--ease-out-expo) 3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .found {
+        animation: none;
+        box-shadow: 0 0 0 1px var(--accent);
+    }
+}
+
 /* The only thing on the page that moves continuously: two radial gradients
    behind the hero, drifting ~4% over 20s. Everything else is static once it
    has arrived. */
