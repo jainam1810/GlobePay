@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, use } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Plus, AlertCircle, Send, Users, CheckCircle2, XCircle, Clock, ExternalLink, Sparkles, Pencil, Trash2, Copy, Check, FileUp } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, AlertCircle, Send, Users, CheckCircle2, XCircle, Clock, ExternalLink, Sparkles, Pencil, Trash2, Copy, Check } from "lucide-react";
 import { SUPPORTED_COUNTRIES, COMPANY_COUNTRIES, flagFor, avatarFor, truncate, formatUSD, type DbContractor } from "@/lib/contractor-types";
 import type { DbClient, PayrollRun } from "@/lib/clients";
 import ImportFreelancers from "@/components/import-freelancers";
-import InvoiceIntake from "@/components/invoice-intake";
+import InvoiceIntake, { type InvoiceMeta } from "@/components/invoice-intake";
 
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -17,6 +17,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     // Per-run amounts, keyed by contractor id. Seeded from each freelancer's
     // saved default when they're selected, but always overridable.
     const [amounts, setAmounts] = useState<Record<string, string>>({});
+    // Which invoice, if any, put each line on this run — carried through to the
+    // ledger so a payment can be traced back to the document behind it.
+    const [invoices, setInvoices] = useState<Record<string, InvoiceMeta>>({});
     const [note, setNote] = useState("");
     const [preparing, setPreparing] = useState(false);
     const [prepMsg, setPrepMsg] = useState<string | null>(null);
@@ -67,12 +70,17 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             const amountMap = Object.fromEntries(picked.map((c) => [c.id, amountFor(c)]));
             const r = await fetch("/api/payroll-runs", {
                 method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ clientId: id, contractorIds: [...selected], amounts: amountMap, note }),
+                body: JSON.stringify({
+                    clientId: id, contractorIds: [...selected], amounts: amountMap,
+                    // Only for the lines that actually came from a document.
+                    invoices: Object.fromEntries(picked.filter((c) => invoices[c.id]).map((c) => [c.id, invoices[c.id]])),
+                    note,
+                }),
             });
             const j = await r.json();
             if (!r.ok) throw new Error(j?.error || "Failed to prepare payroll");
             setPrepMsg(`Payroll prepared — waiting for ${client?.company_name ?? "the client"} to confirm in their portal. (${j.notification?.detail ?? "no notification"})`);
-            setSelected(new Set()); setAmounts({}); setNote("");
+            setSelected(new Set()); setAmounts({}); setInvoices({}); setNote("");
             load();
         } catch (e) {
             setPrepMsg(e instanceof Error ? e.message : "Failed");
@@ -146,7 +154,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     </div>
                     <div className="flex items-center gap-4 flex-wrap">
                         <button className="text-xs inline-flex items-center gap-1 text-[var(--accent)] hover:opacity-80 transition" onClick={() => { setShowInvoice(!showInvoice); setShowImport(false); setShowAdd(false); setEditing(null); }}>
-                            <FileUp size={13} /> Add from invoice
+                            <Sparkles size={13} /> Add from invoice
                         </button>
                         <button className="text-xs inline-flex items-center gap-1 text-[var(--accent)] hover:opacity-80 transition" onClick={() => { setShowImport(!showImport); setShowInvoice(false); setShowAdd(false); setEditing(null); }}>
                             <Sparkles size={13} /> Import list with AI
@@ -166,9 +174,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                         // The invoice doesn't pay anyone by itself — it selects the
                         // contractor and fills their amount on this run, which the
                         // operator still has to prepare and the client still has to sign.
-                        onAdd={(contractorId, amountUsd) => {
+                        onAdd={(contractorId, amountUsd, invoice) => {
                             setSelected(new Set([...selected, contractorId]));
                             setAmounts({ ...amounts, [contractorId]: String(amountUsd) });
+                            setInvoices({ ...invoices, [contractorId]: invoice });
                             setShowInvoice(false);
                         }}
                     />

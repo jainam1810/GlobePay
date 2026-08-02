@@ -56,8 +56,13 @@ async function writeLedgerRecords(runClientId: string, lineItems: PayrollLineIte
             client_id: runClientId,
             payee_name: li.name,
             amount: li.amount, currency: "USD",
-            invoice_date: today,
-            description: note || "Payroll",
+            // When the line came from an invoice, the ledger keeps that
+            // document's own number, date and description — that's what makes a
+            // payment traceable back to the thing that asked for it. Otherwise
+            // fall back to the run's own note and today's date.
+            invoice_number: li.invoice_number ?? null,
+            invoice_date: li.invoice_date || today,
+            description: li.invoice_description || note || "Payroll",
             tx_hash: txHash,
             local_amount, local_currency, fx_rate, fx_pinned_at,
             tax_country: li.country, withholding_rate, withheld_amount, net_amount,

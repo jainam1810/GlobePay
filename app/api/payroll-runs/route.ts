@@ -45,12 +45,16 @@ export async function POST(req: Request) {
         if (!s || s.role !== "globepay_admin") return NextResponse.json({ error: "GlobePay admin only" }, { status: 403 });
 
         const body = await req.json();
-        const { clientId, contractorIds, amounts, note } = body || {};
+        const { clientId, contractorIds, amounts, invoices, note } = body || {};
         if (!clientId) return NextResponse.json({ error: "clientId is required" }, { status: 400 });
         if (!Array.isArray(contractorIds) || contractorIds.length === 0) {
             return NextResponse.json({ error: "Select at least one freelancer to pay" }, { status: 400 });
         }
         const overrides: Record<string, number> = amounts && typeof amounts === "object" ? amounts : {};
+        // Invoice provenance, keyed by contractor id, for lines that came from
+        // a document rather than a standing amount.
+        type InvoiceMeta = { number?: string; date?: string; description?: string };
+        const invoiceMeta: Record<string, InvoiceMeta> = invoices && typeof invoices === "object" ? invoices : {};
 
         const supabase = getSupabase();
         const { data: contractors, error: cErr } = await supabase
@@ -64,7 +68,13 @@ export async function POST(req: Request) {
         const line_items: PayrollLineItem[] = (contractors as DbContractor[]).map((c) => {
             const override = overrides[c.id];
             const amount = typeof override === "number" && override > 0 ? override : c.monthly_amount;
-            return { contractor_id: c.id, name: c.name, wallet: c.wallet, country: c.country, amount };
+            const inv = invoiceMeta[c.id];
+            return {
+                contractor_id: c.id, name: c.name, wallet: c.wallet, country: c.country, amount,
+                invoice_number: inv?.number?.trim() || null,
+                invoice_date: inv?.date || null,
+                invoice_description: inv?.description?.trim() || null,
+            };
         });
 
         const zeroed = line_items.filter((li) => !(li.amount > 0)).map((li) => li.name);
