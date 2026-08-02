@@ -1,8 +1,9 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, History, Scale, FileText, MessagesSquare } from "lucide-react";
+import { Home, History, Scale, FileText, MessagesSquare, Sparkles } from "lucide-react";
 import ConnectButton from "@/components/connect-button";
+import AskWidget from "@/components/ask-widget";
 import SignOutButton from "@/components/sign-out-button";
 import { flagFor } from "@/lib/contractor-types";
 
@@ -12,6 +13,7 @@ const nav = [
     { href: "/portal/ledger", label: "Tax ledger", icon: Scale },
     { href: "/portal/audit-pack", label: "Audit pack", icon: FileText },
     { href: "/portal/messages", label: "Messages", icon: MessagesSquare },
+    { href: "/portal/ask", label: "Ask", icon: Sparkles },
 ];
 
 export default function PortalShell({ children, companyName, homeCountry, email }:
@@ -55,6 +57,7 @@ export default function PortalShell({ children, companyName, homeCountry, email 
                 </header>
                 <main className="flex-1 px-6 md:px-10 py-8 md:py-10">{children}</main>
             </div>
+            <AskWidget />
         </div>
     );
 }
