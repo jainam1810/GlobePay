@@ -51,7 +51,22 @@ export async function POST(req: Request) {
                 }),
             },
         );
-        if (!r.ok) return NextResponse.json({ error: "Couldn't understand that — try rephrasing it." }, { status: 502 });
+        // Distinguish "we're throttled" from "that sentence made no sense".
+        // Telling someone to rephrase a perfectly good question when the real
+        // problem is a rate limit sends them in circles — and it happens in
+        // exactly the moment they're relying on this in front of other people.
+        if (r.status === 429) {
+            return NextResponse.json(
+                { error: "Too many questions at once — give it a minute and ask again." },
+                { status: 429 },
+            );
+        }
+        if (!r.ok) {
+            return NextResponse.json(
+                { error: "The assistant is unavailable right now. Your payment records are unaffected — the audit pack has the same figures." },
+                { status: 502 },
+            );
+        }
         const j = await r.json();
         const text = j?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!text) return NextResponse.json({ error: "Couldn't understand that — try rephrasing it." }, { status: 502 });
@@ -69,14 +84,19 @@ export async function POST(req: Request) {
         const { data, error } = await sel;
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-        const { start, end, label } = resolvePeriod(q.period, q.from, q.to);
+        const { startStr, endStr, label } = resolvePeriod(q.period, q.from, q.to);
         const when = (rec: { paid_at?: string | null; invoice_date: string | null; created_at: string }) =>
             new Date(rec.paid_at ?? rec.invoice_date ?? rec.created_at);
+        // Compare calendar days as strings — see resolvePeriod. Mixing a
+        // UTC-parsed DATE column with local-midnight boundaries silently drops
+        // payments made on the first of the month west of Greenwich.
+        const day = (rec: { paid_at?: string | null; invoice_date: string | null; created_at: string }) =>
+            (rec.paid_at ?? rec.invoice_date ?? rec.created_at).slice(0, 10);
 
         const rows = (data || []).filter((rec) => {
-            const t = when(rec);
-            if (start && t < start) return false;
-            if (end && t > end) return false;
+            const d = day(rec);
+            if (startStr && d < startStr) return false;
+            if (endStr && d > endStr) return false;
             if (q.country && (rec.tax_country ?? "").toLowerCase() !== q.country.toLowerCase()) return false;
             if (q.contractor) {
                 const a = (rec.payee_name ?? "").toLowerCase().replace(/[^a-z]/g, "");

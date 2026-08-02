@@ -70,12 +70,8 @@ function Evidence({ rows, truncated, scope }: { rows: Evidence[]; truncated: boo
     );
 }
 
-const SUGGESTIONS = [
-    "How much did we pay last quarter?",
-    "How much went to Argentina this year?",
-    "Payments per country last year",
-    "How many payments did we make last month?",
-];
+// Starter questions come from the server, built from this client's own payments,
+// so nothing offered here can answer "no payments" — see /api/ask/suggestions.
 
 export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = false }: {
     clientId?: string;
@@ -87,9 +83,19 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
     const [turns, setTurns] = useState<Turn[]>([]);
     const [q, setQ] = useState("");
     const [busy, setBusy] = useState(false);
+    const [suggestions, setSuggestions] = useState<string[] | null>(null);
     const endRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [turns, busy]);
+
+    useEffect(() => {
+        let live = true;
+        fetch("/api/ask/suggestions")
+            .then((r) => r.json())
+            .then((j) => { if (live) setSuggestions(j.suggestions ?? []); })
+            .catch(() => { if (live) setSuggestions([]); });
+        return () => { live = false; };
+    }, []);
 
     async function ask(question: string) {
         const text = question.trim();
@@ -136,16 +142,22 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
                             </div>
                             <div className="text-[15px] font-medium">Ask about your payments</div>
                             <p className="text-[13px] text-[var(--text-dim)] mt-1.5 max-w-sm mx-auto">
-                                Totals by period, country or contractor — answered from your own payment records.
+                                {suggestions?.length === 0
+                                    ? "Once you've made a payment, you can ask about totals by period, country or contractor here."
+                                    : "Totals by period, country or contractor — answered from your own payment records."}
                             </p>
-                            <div className="mt-5 flex flex-wrap justify-center gap-2">
-                                {SUGGESTIONS.map((s) => (
-                                    <button key={s} onClick={() => ask(s)}
-                                        className="text-[12px] px-3 py-1.5 rounded-lg border border-[var(--border-strong)] text-[var(--text-dim)] hover:text-[var(--text)] hover:border-[var(--accent-line)] transition">
-                                        {s}
-                                    </button>
-                                ))}
-                            </div>
+                            {/* Built from this client's own history, so every one of
+                                these returns a real answer rather than "no payments". */}
+                            {suggestions && suggestions.length > 0 && (
+                                <div className="mt-5 flex flex-wrap justify-center gap-2">
+                                    {suggestions.map((s) => (
+                                        <button key={s} onClick={() => ask(s)}
+                                            className="text-[12px] px-3 py-1.5 rounded-lg border border-[var(--border-strong)] text-[var(--text-dim)] hover:text-[var(--text)] hover:border-[var(--accent-line)] transition">
+                                            {s}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

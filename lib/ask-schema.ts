@@ -3,6 +3,7 @@ import {
     startOfQuarter, endOfQuarter, subQuarters,
     startOfYear, endOfYear, subYears,
     startOfDay, endOfDay, parseISO, format,
+    isSameMonth, isSameYear, isFirstDayOfMonth, isLastDayOfMonth,
 } from "date-fns";
 
 // Natural-language questions about payment history.
@@ -64,6 +65,9 @@ export const askSchema = {
     required: ["metric", "period", "from", "to", "country", "contractor", "groupBy", "unanswerable"],
 };
 
+/** Calendar day as YYYY-MM-DD, read in local terms. */
+const ymd = (d: Date) => format(d, "yyyy-MM-dd");
+
 /**
  * Resolve a symbolic period into a concrete, inclusive date range.
  *
@@ -71,37 +75,55 @@ export const askSchema = {
  * cases (Q1 rolling back to Q4 of the previous year, month lengths, DST) are
  * exactly where home-made date maths goes wrong, and a wrong range here means a
  * wrong total in front of a stakeholder.
+ *
+ * Boundaries are also returned as YYYY-MM-DD strings, and callers filter on
+ * those rather than on Date objects. The records carry `invoice_date`, a DATE
+ * column, which JavaScript parses as UTC midnight — while startOfMonth() returns
+ * *local* midnight. Comparing the two drops a payment made on the 1st of the
+ * month in any timezone behind UTC. Comparing calendar days as strings is exact
+ * at the granularity we actually filter on, and has no timezone at all.
  */
 export function resolvePeriod(period: AskPeriod, from: string, to: string, now = new Date()) {
-    const none = { start: null, end: null, label: "all time" };
+    const none = { start: null, end: null, label: "all time", startStr: null, endStr: null };
 
     switch (period) {
         case "this_month":
-            return { start: startOfMonth(now), end: endOfMonth(now), label: format(now, "MMMM yyyy") };
+            return { start: startOfMonth(now), end: endOfMonth(now), label: format(now, "MMMM yyyy"), startStr: ymd(startOfMonth(now)), endStr: ymd(endOfMonth(now)) };
         case "last_month": {
             const d = subMonths(now, 1);
-            return { start: startOfMonth(d), end: endOfMonth(d), label: format(d, "MMMM yyyy") };
+            return { start: startOfMonth(d), end: endOfMonth(d), label: format(d, "MMMM yyyy"), startStr: ymd(startOfMonth(d)), endStr: ymd(endOfMonth(d)) };
         }
         case "this_quarter":
-            return { start: startOfQuarter(now), end: endOfQuarter(now), label: format(now, "QQQ yyyy") };
+            return { start: startOfQuarter(now), end: endOfQuarter(now), label: format(now, "QQQ yyyy"), startStr: ymd(startOfQuarter(now)), endStr: ymd(endOfQuarter(now)) };
         case "last_quarter": {
             const d = subQuarters(now, 1);
-            return { start: startOfQuarter(d), end: endOfQuarter(d), label: format(d, "QQQ yyyy") };
+            return { start: startOfQuarter(d), end: endOfQuarter(d), label: format(d, "QQQ yyyy"), startStr: ymd(startOfQuarter(d)), endStr: ymd(endOfQuarter(d)) };
         }
         case "this_year":
-            return { start: startOfYear(now), end: endOfYear(now), label: format(now, "yyyy") };
+            return { start: startOfYear(now), end: endOfYear(now), label: format(now, "yyyy"), startStr: ymd(startOfYear(now)), endStr: ymd(endOfYear(now)) };
         case "last_year": {
             const d = subYears(now, 1);
-            return { start: startOfYear(d), end: endOfYear(d), label: format(d, "yyyy") };
+            return { start: startOfYear(d), end: endOfYear(d), label: format(d, "yyyy"), startStr: ymd(startOfYear(d)), endStr: ymd(endOfYear(d)) };
         }
         case "custom": {
             const s = from ? startOfDay(parseISO(from)) : null;
             const e = to ? endOfDay(parseISO(to)) : null;
             if (s && isNaN(+s)) return none;
             if (e && isNaN(+e)) return none;
-            if (s && e) return { start: s, end: e, label: `${from} to ${to}` };
-            if (s) return { start: s, end: null, label: `since ${from}` };
-            if (e) return { start: null, end: e, label: `up to ${to}` };
+            if (s && e) {
+                // A range that happens to be exactly one calendar month or year
+                // reads far better by name. "July 2026" is what someone asked
+                // for; "2026-07-01 to 2026-07-31" is how we stored it.
+                if (isSameMonth(s, e) && isFirstDayOfMonth(s) && isLastDayOfMonth(e)) {
+                    return { start: s, end: e, label: format(s, "MMMM yyyy"), startStr: ymd(s), endStr: ymd(e) };
+                }
+                if (isSameYear(s, e) && isFirstDayOfMonth(s) && s.getMonth() === 0 && e.getMonth() === 11 && isLastDayOfMonth(e)) {
+                    return { start: s, end: e, label: format(s, "yyyy"), startStr: ymd(s), endStr: ymd(e) };
+                }
+                return { start: s, end: e, label: `${from} to ${to}`, startStr: ymd(s), endStr: ymd(e) };
+            }
+            if (s) return { start: s, end: null, label: `since ${from}`, startStr: ymd(s), endStr: null };
+            if (e) return { start: null, end: e, label: `up to ${to}`, startStr: null, endStr: ymd(e) };
             return none;
         }
         default:
