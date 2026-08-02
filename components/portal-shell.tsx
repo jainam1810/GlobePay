@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, History, Scale, FileText, MessagesSquare } from "lucide-react";
+import { Home, History, Scale, FileText, MessagesSquare, BarChart3 } from "lucide-react";
 import ConnectButton from "@/components/connect-button";
 import AskWidget from "@/components/ask-widget";
 import SignOutButton from "@/components/sign-out-button";
@@ -9,6 +9,7 @@ import { flagFor } from "@/lib/contractor-types";
 
 const nav = [
     { href: "/portal", label: "Home", icon: Home },
+    { href: "/portal/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/portal/payments", label: "Payments", icon: History },
     { href: "/portal/ledger", label: "Tax ledger", icon: Scale },
     { href: "/portal/audit-pack", label: "Audit pack", icon: FileText },
