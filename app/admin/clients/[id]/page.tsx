@@ -159,7 +159,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
                 {showInvoice && roster && (
                     <InvoiceIntake
+                        clientId={id}
                         roster={roster}
+                        onRosterChange={load}
                         onClose={() => setShowInvoice(false)}
                         // The invoice doesn't pay anyone by itself — it selects the
                         // contractor and fills their amount on this run, which the
