@@ -8,7 +8,11 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Send, Loader2, Sparkles, AlertCircle, ChevronRight, ArrowUpRight } from "lucide-react";
+import { Send, Loader2, Sparkles, AlertCircle, ChevronRight, ArrowUpRight, History, Plus, Trash2 } from "lucide-react";
+import {
+    listConversations, saveConversation, deleteConversation, clearConversations,
+    titleFrom, dayLabel, type Conversation,
+} from "@/lib/ask-history";
 
 type Evidence = {
     name: string; country: string | null; amount: number;
@@ -115,6 +119,9 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
     const [busy, setBusy] = useState(false);
     const [suggestions, setSuggestions] = useState<string[] | null>(null);
     const [workingIdx, setWorkingIdx] = useState(0);
+    const [showHistory, setShowHistory] = useState(false);
+    const [history, setHistory] = useState<Conversation[]>([]);
+    const convId = useRef<string>("");
     const endRef = useRef<HTMLDivElement>(null);
 
     // Which console we're in decides where "see it in payments" goes. Read from
@@ -132,6 +139,39 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
     }, [busy]);
 
     useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [turns, busy]);
+
+    // Persist after every completed exchange, not on a timer — a conversation
+    // is worth keeping once it has an answer in it, and not before.
+    useEffect(() => {
+        if (turns.length === 0) return;
+        const last = turns[turns.length - 1];
+        if (!last.a && !last.error) return;   // still in flight
+        if (!convId.current) convId.current = `c_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        saveConversation({
+            id: convId.current,
+            startedAt: turns[0].at,
+            updatedAt: Date.now(),
+            title: titleFrom(turns),
+            turns,
+        });
+    }, [turns]);
+
+    function openHistory() {
+        setHistory(listConversations());
+        setShowHistory(true);
+    }
+
+    function newChat() {
+        convId.current = "";
+        setTurns([]);
+        setShowHistory(false);
+    }
+
+    function resume(c: Conversation) {
+        convId.current = c.id;
+        setTurns(c.turns as Turn[]);
+        setShowHistory(false);
+    }
 
     useEffect(() => {
         let live = true;
@@ -179,8 +219,85 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
         } finally { setBusy(false); }
     }
 
+    if (showHistory) {
+        return (
+            <div className={`flex flex-col overflow-hidden ${bare ? "" : "card"}`} style={{ height }}>
+                <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-[var(--border)] shrink-0">
+                    <div className="text-[13px] font-medium">Past conversations</div>
+                    <div className="flex items-center gap-2">
+                        {history.length > 0 && (
+                            <button
+                                onClick={() => { clearConversations(); setHistory([]); }}
+                                className="text-[11px] text-[var(--text-dim)] hover:text-[var(--danger)] transition">
+                                Delete all
+                            </button>
+                        )}
+                        <button onClick={() => setShowHistory(false)}
+                            className="text-[11px] text-[var(--accent)] hover:underline underline-offset-2">
+                            Back
+                        </button>
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-3">
+                    {history.length === 0 ? (
+                        <div className="h-full grid place-items-center text-center px-6">
+                            <div>
+                                <div className="text-[13px] font-medium">Nothing saved yet</div>
+                                <p className="text-[12px] text-[var(--text-dim)] mt-1.5 max-w-xs">
+                                    Conversations are kept on this browser once they have an answer in them.
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-1.5">
+                            {history.map((c) => (
+                                <div key={c.id}
+                                    className="group flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 hover:border-[var(--accent-line)] transition">
+                                    <button onClick={() => resume(c)} className="min-w-0 flex-1 text-left">
+                                        <div className="text-[12px] truncate">{c.title}</div>
+                                        <div className="text-[10px] text-[var(--text-faint)]">
+                                            {dayLabel(c.updatedAt)} · {c.turns.length} question{c.turns.length === 1 ? "" : "s"}
+                                        </div>
+                                    </button>
+                                    <button
+                                        onClick={() => { deleteConversation(c.id); setHistory(listConversations()); }}
+                                        aria-label={`Delete "${c.title}"`}
+                                        className="shrink-0 text-[var(--text-faint)] hover:text-[var(--danger)] transition">
+                                        <Trash2 size={13} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div className="border-t border-[var(--border)] p-3 shrink-0">
+                    <p className="text-[10px] text-[var(--text-faint)] leading-relaxed">
+                        Saved on this browser only — they won&rsquo;t follow you to another device, and clearing
+                        site data removes them.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className={`flex flex-col overflow-hidden ${bare ? "" : "card"}`} style={{ height }}>
+            {/* History and a fresh start. Kept to two small controls: this is a
+                widget people dip into, not an app they live in. */}
+            <div className="flex items-center justify-end gap-1 px-3 py-2 border-b border-[var(--border)] shrink-0">
+                <button onClick={newChat} disabled={turns.length === 0}
+                    title="Start a new conversation"
+                    className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md text-[var(--text-dim)] hover:text-[var(--text)] hover:bg-[var(--surface-2)] transition disabled:opacity-40">
+                    <Plus size={12} /> New
+                </button>
+                <button onClick={openHistory} title="Past conversations"
+                    className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md text-[var(--text-dim)] hover:text-[var(--text)] hover:bg-[var(--surface-2)] transition">
+                    <History size={12} /> History
+                </button>
+            </div>
+
             <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4">
                 {turns.length === 0 && (
                     <div className="h-full grid place-items-center text-center px-6">
