@@ -150,19 +150,22 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
         if (turns.length === 0) return;
         const last = turns[turns.length - 1];
         if (!last.a && !last.error) return;   // still in flight
-        if (!convId.current) convId.current = `c_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        let live = true;
         saveConversation({
-            id: convId.current,
-            startedAt: turns[0].at,
-            updatedAt: Date.now(),
+            id: convId.current || undefined,
             title: titleFrom(turns),
             turns,
+        }).then((saved) => {
+            // Keep the server's id so the next exchange updates this row rather
+            // than starting a second conversation.
+            if (live && saved?.id) convId.current = saved.id;
         });
+        return () => { live = false; };
     }, [turns]);
 
-    function openHistory() {
-        setHistory(listConversations());
+    async function openHistory() {
         setShowHistory(true);
+        setHistory(await listConversations());
     }
 
     function newChat() {
@@ -261,11 +264,11 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
                                     <button onClick={() => resume(c)} className="min-w-0 flex-1 text-left">
                                         <div className="text-[12px] truncate">{c.title}</div>
                                         <div className="text-[10px] text-[var(--text-faint)]">
-                                            {dayLabel(c.updatedAt)} · {c.turns.length} question{c.turns.length === 1 ? "" : "s"}
+                                            {dayLabel(c.updated_at)} · {c.turns.length} question{c.turns.length === 1 ? "" : "s"}
                                         </div>
                                     </button>
                                     <button
-                                        onClick={() => { deleteConversation(c.id); setHistory(listConversations()); }}
+                                        onClick={async () => { await deleteConversation(c.id); setHistory(await listConversations()); }}
                                         aria-label={`Delete "${c.title}"`}
                                         className="shrink-0 text-[var(--text-faint)] hover:text-[var(--danger)] transition">
                                         <Trash2 size={13} />
@@ -278,9 +281,9 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
 
                 <div className="border-t border-[var(--border)] p-3 shrink-0">
                     <p className="text-[10px] text-[var(--text-faint)] leading-relaxed">
-                        Cleared after {RETENTION_HOURS} hours, and saved on this device only — they won&rsquo;t follow
-                        you to another one. Every answer can be asked again; the durable copy of your payments is the
-                        audit pack.
+                        Saved to your account, so they follow you to any device you sign in on, and cleared after{" "}
+                        {RETENTION_HOURS} hours. Only you can see them. Every answer can be asked again — the durable
+                        copy of your payments is the audit pack.
                     </p>
                 </div>
 
