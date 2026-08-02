@@ -1,14 +1,11 @@
-// Saved conversations for the assistant.
+// Saved assistant conversations.
 //
-// Kept in localStorage rather than the database, deliberately: there is no
-// migration, no row cost and no new API surface, and the questions are about
-// data the person can already see. The trade is that history is per-browser —
-// worth saying out loud in the UI rather than letting someone assume it follows
-// them to another machine.
+// Stored against the account, not the browser: the assistant is part of what a
+// client is given, so their questions follow them to another device rather than
+// living in one browser profile. See supabase/004-ask-conversations.sql.
 //
-// Everything below is defensive about storage failing: private windows, full
-// quotas and disabled storage all throw, and none of that should take the
-// assistant down with it.
+// Scoped per *user* rather than per client — two people at the same company
+// shouldn't read each other's questions, and a GlobePay admin has no client_id.
 
 export type StoredTurn = {
     q: string;
@@ -23,73 +20,57 @@ export type StoredTurn = {
 
 export type Conversation = {
     id: string;
-    startedAt: number;
-    updatedAt: number;
-    title: string;        // first question, trimmed — what someone recognises it by
+    updated_at: string;
+    title: string;
     turns: StoredTurn[];
 };
-
-const KEY = "globepay.ask.history";
-const MAX = 40;   // plenty for a person, nowhere near a storage quota
 
 /**
  * How long a saved conversation survives.
  *
- * 24 hours. Short, because nothing here is a record: every answer is recomputed
- * from the ledger on demand, so a lost question costs one re-ask, and keeping a
- * month of someone's financial questions sitting in a browser profile buys
- * convenience nobody asked for. The audit pack is where the durable copy lives.
+ * 24 hours. Nothing here is a record: every answer is recomputed from the ledger
+ * on demand, so a lost question costs one re-ask, and keeping a month of
+ * somebody's financial questions on file buys convenience nobody asked for. The
+ * durable copy of the payments is the audit pack.
  *
- * One constant if a longer window is ever wanted.
+ * Enforced server-side on access — a client-side timer would be advisory only.
  */
 export const RETENTION_HOURS = 24;
-const RETENTION_MS = RETENTION_HOURS * 60 * 60 * 1000;
 
-function read(): Conversation[] {
-    if (typeof window === "undefined") return [];
+export async function listConversations(): Promise<Conversation[]> {
     try {
-        const raw = window.localStorage.getItem(KEY);
-        const parsed = raw ? JSON.parse(raw) : [];
-        if (!Array.isArray(parsed)) return [];
-
-        // Expire on read rather than on a timer: a background timer only runs
-        // while a tab is open, so it would miss exactly the case that matters —
-        // a browser closed for a fortnight.
-        const cutoff = Date.now() - RETENTION_MS;
-        const live = (parsed as Conversation[]).filter((c) => (c.updatedAt ?? 0) > cutoff);
-        if (live.length !== parsed.length) write(live);
-        return live;
+        const r = await fetch("/api/ask/conversations");
+        if (!r.ok) return [];
+        return (await r.json()).conversations ?? [];
     } catch {
         return [];
     }
 }
 
-function write(list: Conversation[]) {
-    if (typeof window === "undefined") return;
+/** Upsert. Returns the server's id so a growing conversation updates in place. */
+export async function saveConversation(c: { id?: string; title: string; turns: StoredTurn[] }) {
     try {
-        window.localStorage.setItem(KEY, JSON.stringify(list.slice(0, MAX)));
+        const r = await fetch("/api/ask/conversations", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(c),
+        });
+        if (!r.ok) return null;
+        return (await r.json()).conversation as Conversation;
     } catch {
-        // Out of quota or storage disabled — the conversation on screen still
-        // works, it just won't be there tomorrow. Not worth an error message.
+        // Saving history is a convenience; failing to save it must never
+        // interrupt the conversation on screen.
+        return null;
     }
 }
 
-export function listConversations(): Conversation[] {
-    return read().sort((a, b) => b.updatedAt - a.updatedAt);
+export async function deleteConversation(id: string) {
+    try { await fetch(`/api/ask/conversations?id=${encodeURIComponent(id)}`, { method: "DELETE" }); }
+    catch { /* nothing to recover */ }
 }
 
-/** Insert or update in place, keyed by id. */
-export function saveConversation(c: Conversation) {
-    const list = read().filter((x) => x.id !== c.id);
-    write([c, ...list].sort((a, b) => b.updatedAt - a.updatedAt));
-}
-
-export function deleteConversation(id: string) {
-    write(read().filter((c) => c.id !== id));
-}
-
-export function clearConversations() {
-    write([]);
+export async function clearConversations() {
+    try { await fetch("/api/ask/conversations", { method: "DELETE" }); }
+    catch { /* nothing to recover */ }
 }
 
 export function titleFrom(turns: StoredTurn[]) {
@@ -98,12 +79,12 @@ export function titleFrom(turns: StoredTurn[]) {
 }
 
 /** "Today", "Yesterday", else a date — how people actually look for a chat. */
-export function dayLabel(ms: number) {
-    const d = new Date(ms);
+export function dayLabel(iso: string) {
+    const d = new Date(iso);
     const today = new Date();
     const yday = new Date(); yday.setDate(today.getDate() - 1);
     const same = (a: Date, b: Date) => a.toDateString() === b.toDateString();
-    if (same(d, today)) return "Today";
+    if (same(d, today)) return `Today, ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
     if (same(d, yday)) return "Yesterday";
     return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
