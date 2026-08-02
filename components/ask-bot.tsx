@@ -11,7 +11,7 @@ import { usePathname } from "next/navigation";
 import { Send, Loader2, Sparkles, AlertCircle, ChevronRight, ArrowUpRight, History, Plus, Trash2 } from "lucide-react";
 import {
     listConversations, saveConversation, deleteConversation, clearConversations,
-    titleFrom, dayLabel, type Conversation,
+    titleFrom, dayLabel, RETENTION_DAYS, type Conversation,
 } from "@/lib/ask-history";
 
 type Evidence = {
@@ -274,8 +274,8 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
 
                 <div className="border-t border-[var(--border)] p-3 shrink-0">
                     <p className="text-[10px] text-[var(--text-faint)] leading-relaxed">
-                        Saved on this browser only — they won&rsquo;t follow you to another device, and clearing
-                        site data removes them.
+                        Kept for {RETENTION_DAYS} days, on this browser only — they won&rsquo;t follow you to another
+                        device, and clearing site data removes them.
                     </p>
                 </div>
             </div>

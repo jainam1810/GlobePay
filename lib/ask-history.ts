@@ -32,12 +32,35 @@ export type Conversation = {
 const KEY = "globepay.ask.history";
 const MAX = 40;   // plenty for a person, nowhere near a storage quota
 
+/**
+ * How long a saved conversation survives.
+ *
+ * 30 days, not 24 hours. The job here is "get a number before a stakeholder
+ * meeting", and those are weekly, monthly or quarterly — a question asked on
+ * Friday for a Monday meeting must still be there on Monday. A day-long window
+ * would delete the history precisely when it was about to be useful, and silent
+ * overnight loss reads as a bug rather than a feature.
+ *
+ * It still expires, so nothing accumulates indefinitely on a shared machine.
+ * One constant to change if a shorter window is ever wanted.
+ */
+export const RETENTION_DAYS = 30;
+const RETENTION_MS = RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
 function read(): Conversation[] {
     if (typeof window === "undefined") return [];
     try {
         const raw = window.localStorage.getItem(KEY);
         const parsed = raw ? JSON.parse(raw) : [];
-        return Array.isArray(parsed) ? parsed : [];
+        if (!Array.isArray(parsed)) return [];
+
+        // Expire on read rather than on a timer: a background timer only runs
+        // while a tab is open, so it would miss exactly the case that matters —
+        // a browser closed for a fortnight.
+        const cutoff = Date.now() - RETENTION_MS;
+        const live = (parsed as Conversation[]).filter((c) => (c.updatedAt ?? 0) > cutoff);
+        if (live.length !== parsed.length) write(live);
+        return live;
     } catch {
         return [];
     }
