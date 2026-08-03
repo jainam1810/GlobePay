@@ -7,11 +7,14 @@
 // darker-where-bigger would double-encode length as hue and burn the only free
 // channel on information the bar already shows.
 //
-// The accent (#4C50EA) was validated against the dark surface rather than eyeballed:
-// lightness band, chroma floor and ≥3:1 contrast all pass. The brand's other
-// colours were checked as a categorical set and FAILED — #2446F6 sits ΔE 5.2 from
-// the accent (indistinguishable), and the green/yellow pair collapses under
-// protanopia — which is the argument for one hue, not four.
+// The accent (#2B6BFF) was validated against the real card surface (#0F1219)
+// rather than eyeballed: lightness band, chroma floor and ≥3:1 contrast all
+// pass. The status trio was run through the same checker as a categorical set
+// and FAILED — #66D555 and #EFBE54 sit ΔE 1.9 apart under protanopia, i.e.
+// indistinguishable. That is survivable only because status in this product is
+// always a dot *beside a word* ("Paid", "Awaiting signature"), never colour on
+// its own. It is not survivable in a chart, which is the argument for one hue
+// here rather than four.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     ResponsiveContainer, BarChart, Bar,
@@ -22,7 +25,9 @@ import type { SavedRecord } from "@/lib/records";
 import { flagFor } from "@/lib/contractor-types";
 import { format, parseISO } from "date-fns";
 
-const ACCENT = "#4C50EA";
+// Recharts needs a literal — it cannot resolve a CSS custom property here.
+// Keep this in step with --accent in globals.css.
+const ACCENT = "#2B6BFF";
 const GRID = "var(--border)";
 const INK_DIM = "var(--text-dim)";
 

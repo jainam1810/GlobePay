@@ -4,10 +4,11 @@
 // Scrolling is deliberately native. An earlier version eased the content toward
 // the real scroll position (lerp), which trails the wheel by design and reads as
 // lag however fast you spin it — and it breaks the platform's own momentum,
-// trackpad and keyboard behaviour. The reveals below carry the motion instead.
+// trackpad and keyboard behaviour. The reveals carry the motion instead.
 import {
-    Hero, Dashboard, PaymentRun, InvoiceAI, TaxAudit, Closer, SiteNav, SiteFooter,
+    Hero, GlobalPayroll, Platform, PaymentRun, InvoiceAI, Pricing, Proof, Faq, Closer,
 } from "@/components/landing/sections";
+import { SiteNav, SiteFooter } from "@/components/landing/nav";
 
 export default function Home() {
     return (
@@ -15,10 +16,13 @@ export default function Home() {
             <SiteNav />
             <main className="relative z-[1]">
                 <Hero />
-                <Dashboard />
+                <GlobalPayroll />
+                <Platform />
                 <PaymentRun />
                 <InvoiceAI />
-                <TaxAudit />
+                <Pricing />
+                <Proof />
+                <Faq />
                 <Closer />
             </main>
             <SiteFooter />
