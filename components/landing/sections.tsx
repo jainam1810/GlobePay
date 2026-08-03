@@ -391,7 +391,11 @@ export function InvoiceAI() {
                                 >
                                     <div className="flex items-start justify-between gap-4 border-b border-[#CFC7B8] pb-3">
                                         <div>
-                                            <div className="text-[15px] font-semibold tracking-tight">A. Eze</div>
+                                            {/* Matches the extracted panel exactly. It used to read
+                                                "A. Eze", which quietly claimed the model could expand
+                                                an initial into a full name — it can't, and shouldn't
+                                                be implied to. */}
+                                            <div className="text-[15px] font-semibold tracking-tight">Amara Eze</div>
                                             <div className="text-[10px] text-[#6E675C]">Backend engineering · Lagos</div>
                                         </div>
                                         <div className="text-right text-[10px] text-[#6E675C]">
@@ -599,8 +603,8 @@ const PROOF = [
     },
     {
         icon: Layers,
-        title: "A run can't land half-paid",
-        body: "Addresses are verified before a run is prepared, so the usual cause of a failed payment never reaches it. And a run is one transaction, so you are never left reconciling who got paid and who didn't.",
+        title: "Nobody waits on somebody else",
+        body: "Before you sign, every wallet in the run is checked against the chain. If any of them can't receive, we name them and offer to pay everyone else — so one blocked wallet never holds up the other ninety-nine, and you never sign a run that was going to fail.",
     },
     {
         icon: Receipt,
@@ -664,31 +668,58 @@ export function Proof() {
 
 /* ── 7b. what's coming ──────────────────────────────────────────────────────
    A roadmap earns trust only if it is honest about what is not built yet, so
-   every item here is labelled by stage and nothing claims to exist. The first
-   one is the real gap in the product today: you have to source USDC yourself
-   before you can run payroll, which is the single biggest thing standing
-   between a finance team and their first payment. */
+   every step is staged and nothing claims to exist.
+
+   Drawn as a timeline rather than another card grid, because the section above
+   it IS a card grid, and two identical layouts back to back read as one long
+   list nobody finishes. A timeline also carries meaning the cards couldn't:
+   these are ordered, and they get less certain the further out you look —
+   which is exactly what the connecting line does as it fades. */
 
 const ROADMAP = [
     {
-        stage: "Next",
-        title: "Buy USDC straight from GlobePay",
-        body: "Today you bring your own stablecoin — you fund your wallet on an exchange first, then run payroll. We're building the on-ramp so you can top up in your own currency from inside GlobePay, and pay out the same afternoon. One less account, one less transfer, one less delay.",
-        icon: Wallet,
+        stage: "Live",
+        title: "Pay your team in USDC",
+        body: "Batch payroll from your own wallet, one signature, with every wallet checked against the chain before you sign.",
+        icon: Check,
     },
     {
         stage: "Next",
         title: "USDT alongside USDC",
-        body: "Some teams are already paid in USDT and would rather not switch. The payment contract accepts any standard token, so this is about adding and testing rather than rebuilding.",
+        body: "Some teams are already paid in USDT and would rather not switch. The payment contract accepts any standard token, so this is adding and testing rather than rebuilding.",
         icon: Layers,
     },
     {
+        stage: "Next",
+        title: "Buy USDC from GlobePay",
+        body: "Today you bring your own stablecoin — funding your wallet on an exchange first. The on-ramp lets you top up in your own currency from inside GlobePay and pay out the same afternoon.",
+        icon: Wallet,
+    },
+    {
         stage: "Later",
-        title: "Payouts to a local bank account",
-        body: "Not every freelancer wants to hold a stablecoin. The off-ramp lets them take it to their own bank in their own currency, while you keep paying the same way.",
+        title: "Payouts to a local bank",
+        body: "Not every freelancer wants to hold a stablecoin. The off-ramp lets them take it to their own bank in their own currency, while you keep paying exactly the same way.",
         icon: Receipt,
     },
-];
+] as const;
+
+const NODE = {
+    Live: "border-[var(--ok)] bg-[var(--ok)] text-[#07130C]",
+    Next: "border-[var(--accent)] bg-[var(--accent)] text-white",
+    Later: "border-[var(--border-strong)] bg-[var(--surface)] text-[var(--text-faint)]",
+};
+
+const STAGE_TEXT = {
+    Live: "text-[var(--ok)]",
+    Next: "text-[var(--accent)]",
+    Later: "text-[var(--text-faint)]",
+};
+
+const HALO = {
+    Live: "0 0 0 5px color-mix(in srgb, var(--ok) 16%, transparent)",
+    Next: "0 0 0 5px color-mix(in srgb, var(--accent) 16%, transparent)",
+    Later: undefined,
+};
 
 export function Roadmap() {
     return (
@@ -698,33 +729,54 @@ export function Roadmap() {
                     center
                     tag="What's coming"
                     title={<>Built to Go<br />Further Than This</>}
-                    blurb="GlobePay pays your team today. Here's what we're building next — and we'll say plainly which parts aren't live yet."
+                    blurb="GlobePay pays your team today. Here's the order we're building in — and we'll say plainly which parts aren't live yet."
                 />
 
-                <StaggerGroup className="mt-11 grid gap-4 md:grid-cols-3">
-                    {ROADMAP.map((r) => (
-                        <StaggerItem key={r.title}>
-                            <div className="card card-lift h-full p-6">
-                                <div className="flex items-center justify-between">
-                                    <div className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
-                                        <r.icon size={17} />
-                                    </div>
-                                    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.1em] ${r.stage === "Next"
-                                        ? "border-[var(--accent-line)] bg-[var(--accent-soft)] text-[var(--accent)]"
-                                        : "border-[var(--border-strong)] text-[var(--text-faint)]"
-                                        }`}>
-                                        {r.stage}
+                <div className="relative mt-14">
+                    {/* The spine. Solid where the product is real, fading out as
+                        the steps get further away and less certain. Down the left
+                        on a phone, across the top on desktop. */}
+                    <div
+                        aria-hidden
+                        className="pointer-events-none absolute bottom-3 left-[15px] top-3 w-px md:bottom-auto md:left-0 md:right-0 md:top-[15px] md:h-px md:w-auto"
+                        style={{
+                            background:
+                                "linear-gradient(to bottom, var(--ok) 0%, var(--accent) 26%, var(--accent) 58%, color-mix(in srgb, var(--accent) 30%, transparent) 82%, transparent 100%)",
+                        }}
+                    />
+                    <div
+                        aria-hidden
+                        className="pointer-events-none absolute inset-x-0 top-[15px] hidden h-px md:block"
+                        style={{
+                            background:
+                                "linear-gradient(to right, var(--ok) 0%, var(--accent) 26%, var(--accent) 58%, color-mix(in srgb, var(--accent) 30%, transparent) 82%, transparent 100%)",
+                        }}
+                    />
+
+                    <StaggerGroup className="relative grid gap-9 md:grid-cols-4 md:gap-6">
+                        {ROADMAP.map((r) => (
+                            <StaggerItem key={r.title}>
+                                <div className="relative pl-11 md:pl-0">
+                                    <span
+                                        className={`absolute left-0 top-0 grid h-8 w-8 place-items-center rounded-full border-2 md:relative md:mb-6 ${NODE[r.stage]}`}
+                                        style={{ boxShadow: HALO[r.stage] }}
+                                    >
+                                        <r.icon size={14} />
                                     </span>
+
+                                    <div className={`text-[10px] font-medium uppercase tracking-[0.16em] ${STAGE_TEXT[r.stage]}`}>
+                                        {r.stage === "Live" ? "Live today" : r.stage}
+                                    </div>
+                                    <h3 className="mt-2 text-[15px] font-medium tracking-[-0.01em]">{r.title}</h3>
+                                    <p className="mt-2 text-[13px] leading-relaxed text-[var(--text-dim)]">{r.body}</p>
                                 </div>
-                                <h3 className="mt-4 text-[15px] font-medium tracking-[-0.01em]">{r.title}</h3>
-                                <p className="mt-2 text-[13px] leading-relaxed text-[var(--text-dim)]">{r.body}</p>
-                            </div>
-                        </StaggerItem>
-                    ))}
-                </StaggerGroup>
+                            </StaggerItem>
+                        ))}
+                    </StaggerGroup>
+                </div>
 
                 <Reveal index={2}>
-                    <div className="mt-8 flex flex-col items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] px-5 py-4 sm:flex-row">
+                    <div className="mt-14 flex flex-col items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] px-5 py-4 sm:flex-row">
                         <span className="text-[13px] text-[var(--text-dim)]">
                             Want one of these sooner? Tell us — what customers ask for is what gets built first.
                         </span>
