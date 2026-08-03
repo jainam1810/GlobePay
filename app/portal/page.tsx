@@ -11,6 +11,8 @@ import { DISPERSE_ADDRESS, disperseAbi } from "@/lib/disperse";
 import { flagFor, avatarFor, truncate, formatUSD } from "@/lib/contractor-types";
 import { preflight, type Preflight } from "@/lib/preflight";
 import Confirm from "@/components/confirm";
+import WalletBadge from "@/components/wallet-badge";
+import type { DbContractor } from "@/lib/contractor-types";
 import type { DbClient, PayrollRun } from "@/lib/clients";
 
 // Testnet convention (as before): each recipient receives 1 test USDC on-chain;
@@ -45,6 +47,7 @@ export default function PortalHome() {
     const viaSafe = connector?.type === "safe" || (!!address && smartAccountAddr === address);
 
     const [runs, setRuns] = useState<PayrollRun[] | null>(null);
+    const [roster, setRoster] = useState<Map<string, DbContractor>>(new Map());
     const [myClient, setMyClient] = useState<DbClient | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [busyRun, setBusyRun] = useState<string | null>(null);
@@ -63,6 +66,11 @@ export default function PortalHome() {
             .catch((e) => setError(e instanceof Error ? e.message : "Network error"));
         fetch("/api/clients").then((r) => r.json())
             .then((j) => setMyClient((j.clients || [])[0] ?? null))
+            .catch(() => { });
+        // A run's line items are frozen when it's prepared, so verification
+        // status has to come from the roster as it stands now.
+        fetch("/api/contractors").then((r) => r.json())
+            .then((j) => setRoster(new Map(((j.contractors || []) as DbContractor[]).map((c) => [c.id, c]))))
             .catch(() => { });
     }
     useEffect(load, []);
@@ -293,7 +301,12 @@ export default function PortalHome() {
                                     <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full font-display font-semibold text-xs text-[var(--accent-ink)]" style={{ background: `linear-gradient(135deg, ${g1}, ${g2})` }}>{initials}</div>
                                     <div className="min-w-0 flex-1">
                                         <div className="text-sm font-medium truncate">{li.name} <span className="ml-1">{flagFor(li.country)}</span></div>
-                                        <div className="font-mono text-[10px] text-[var(--text-faint)]">{truncate(li.wallet)}</div>
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="font-mono text-[10px] text-[var(--text-faint)]">{truncate(li.wallet)}</span>
+                                            {/* Shown at the moment of signing, which is the only
+                                                moment it can change a decision. */}
+                                            <WalletBadge compact contractor={roster.get(li.contractor_id) ?? { wallet: li.wallet }} />
+                                        </div>
                                     </div>
                                     <div className="font-mono text-sm font-semibold">{formatUSD(li.amount)}</div>
                                 </div>
