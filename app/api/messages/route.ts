@@ -31,7 +31,20 @@ export async function GET(req: Request) {
             .from("messages").select("*").eq("client_id", clientId).order("created_at", { ascending: true });
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-        const messages = (data || []) as Message[];
+        // "Delete for me" is per person, so it is applied here rather than in
+        // the query — the same thread looks different to two colleagues at the
+        // same company.
+        //
+        // Tolerates the table being absent: 005-message-deletion.sql may not
+        // have been run yet, and a missing hide list must degrade to "nothing
+        // hidden" rather than taking the whole conversation down with it.
+        const { data: hides, error: hidesErr } = await supabase
+            .from("message_hides").select("message_id").eq("user_id", s.userId);
+        if (hidesErr) console.error("[messages] hide list unavailable:", hidesErr.message);
+        const hidden = new Set((hides || []).map((h) => h.message_id as string));
+
+        const all = (data || []) as Message[];
+        const messages = all.filter((m) => !hidden.has(m.id));
 
         // Sign attachment URLs on the way out. The bucket is private, so a raw
         // path is useless without one — and these expire.
@@ -42,9 +55,11 @@ export async function GET(req: Request) {
             return { ...m, attachment_url: signed?.signedUrl ?? null };
         }));
 
-        // Mark what the *other* side sent as read.
+        // Mark what the *other* side sent as read — over the full thread, not
+        // the visible one. Hiding a message from your own view does not unsee
+        // it, and read_at is what decides whether the sender may still unsend.
         const theirs = s.role === "globepay_admin" ? "client" : "globepay";
-        const unread = messages.filter((m) => m.sender === theirs && !m.read_at).map((m) => m.id);
+        const unread = all.filter((m) => m.sender === theirs && !m.read_at).map((m) => m.id);
         if (unread.length) {
             await supabase.from("messages").update({ read_at: new Date().toISOString() }).in("id", unread);
         }
