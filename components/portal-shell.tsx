@@ -23,8 +23,8 @@ export default function PortalShell({ children, companyName, homeCountry, email 
     const isActive = (href: string) => href === "/portal" ? pathname === "/portal" : pathname.startsWith(href);
 
     return (
-        <div className="app-ambient relative z-[1] flex min-h-screen">
-            <aside className="glass-bar backdrop-blur-xl backdrop-saturate-150 hidden md:flex w-[252px] shrink-0 flex-col justify-between border-r px-4 py-6">
+        <div className="relative z-[1] flex min-h-screen">
+            <aside className="hidden md:flex w-[252px] shrink-0 flex-col justify-between border-r border-[var(--border)] px-4 py-6">
                 <div>
                     <Link href="/portal" className="flex items-center gap-2.5 px-2 mb-2">
                         <div className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--accent)] text-[var(--accent-ink)] font-display font-bold text-lg shadow-[0_0_24px_var(--accent-glow)]">G</div>
@@ -48,7 +48,7 @@ export default function PortalShell({ children, companyName, homeCountry, email 
                 </div>
             </aside>
             <div className="flex-1 flex flex-col min-w-0">
-                <header className="glass-bar backdrop-blur-xl backdrop-saturate-150 sticky top-0 z-30 flex items-center justify-between border-b px-6 md:px-10 h-16">
+                <header className="flex items-center justify-between border-b border-[var(--border)] px-6 md:px-10 h-16">
                     <div className="md:hidden font-display text-lg font-semibold">{companyName}</div>
                     <div className="flex-1" />
                     <div className="flex items-center gap-3">

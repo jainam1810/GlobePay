@@ -28,15 +28,6 @@
   --border: #1E222D;
   --border-strong: #2B3040;
 
-  /* The tint frosted chrome is built from.
-     Deliberately lighter than any content surface. Everything else in this
-     palette sits within ~40 RGB values of black, so a translucent panel tinted
-     with --bg or --surface composites to exactly the colour behind it and the
-     frost is mathematically invisible — measured at a delta of 1. This value is
-     chosen so chrome lands ~14 RGB values clear of a card passing underneath,
-     which is where a raised plane starts to read as one. */
-  --glass-tint: #1F2430;
-
   --text: #FFFFFF;
   --text-dim: #9BA3B4;
   --text-faint: #6A7284;
@@ -204,98 +195,6 @@ body {
     background:
       radial-gradient(110% 120% at 78% 10%, rgba(120, 160, 255, 0.42), transparent 58%),
       linear-gradient(150deg, var(--accent) 0%, var(--accent-deep) 58%, #0F2C86 100%);
-  }
-
-  /* ── frosted surfaces ──────────────────────────────────────────────────────
-     Glass is applied by the 2026 "hybrid" rule rather than as a theme: flat,
-     solid surfaces carry the product, and frosting is spent only on things that
-     genuinely float above content — chrome, sticky headers, dialogs, the
-     assistant widget.
-
-     It is deliberately NOT used on tables, ledger rows or anything holding a
-     figure. Dense data needs an opaque, predictable background; translucency
-     puts whatever happens to be scrolling underneath behind the number you are
-     trying to read, and the contrast ratio becomes a function of scroll
-     position. On a payroll screen that is not a trade worth making.
-
-     Three constraints are baked in below:
-       · never more than one blurred layer over another — stacked blurs are
-         where backdrop-filter starts costing frames on mid-range hardware
-       · a solid fallback for browsers without backdrop-filter, so text never
-         lands on near-transparency
-       · prefers-reduced-transparency is honoured (see the bottom of this file):
-         the OS-level setting exists precisely for people this effect hurts */
-     The blur itself is NOT declared here. Writing `backdrop-filter` by hand in
-     this file does not survive the build: the CSS optimiser rewrites it to
-     `-webkit-backdrop-filter` *only*, and Chromium ignores the prefixed alias —
-     verified by rendering both against a striped background, where the webkit
-     one stayed perfectly sharp. That failure is silent and it is the worst
-     possible one: translucent chrome with nothing blurred behind it.
-
-     So the blur comes from Tailwind's own `backdrop-blur-*` utilities at each
-     call site, which emit the unprefixed property and survive minification.
-     These classes own the tint, the border and the opaque fallback. */
-  .glass-panel {
-    /* The fallback is the important half: if the blur never applies, this stays
-       a legible opaque panel rather than washed-out text. */
-    background: color-mix(in srgb, var(--glass-tint) 97%, transparent);
-    border: 1px solid var(--border-strong);
-  }
-
-  @supports (backdrop-filter: blur(1px)) {
-    .glass-panel {
-      background: color-mix(in srgb, var(--glass-tint) 78%, transparent);
-      border-color: color-mix(in srgb, var(--border-strong) 85%, transparent);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09);
-    }
-  }
-
-  /* Chrome: nav bars and sticky headers, where content passes underneath and
-     the frosting is doing real work — separating layers, not decorating.
-
-     Tinted with --surface, not --bg. The first attempt used the page colour and
-     was mathematically invisible: compositing rgb(7,8,13) at 66% over a page of
-     rgb(7,8,13) returns rgb(7,8,13) exactly, and even over a card the delta was
-     ~5 RGB values. Glass needs luminance contrast against what sits behind it,
-     so the chrome now reads as a *lighter raised plane* rather than the same
-     black with a blur nobody can perceive. */
-  .glass-bar {
-    background: color-mix(in srgb, var(--glass-tint) 97%, transparent);
-    border-color: var(--border-strong);
-  }
-
-  @supports (backdrop-filter: blur(1px)) {
-    .glass-bar {
-      background: color-mix(in srgb, var(--glass-tint) 76%, transparent);
-      /* The lit top edge does more to say "glass" than the blur does — it is
-         the specular line you get where a pane catches light. */
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.07),
-        0 8px 24px -12px rgba(0, 0, 0, 0.6);
-    }
-  }
-
-  /* Light for the glass to catch.
-
-     Frosting only reads if something behind it has colour or luminance to
-     blur, and the app palette spans about 40 RGB values of near-black — a
-     translucent panel over it composites to the same near-black, which is why
-     the first attempt was invisible no matter how the blur was tuned.
-
-     So the app pages get a soft accent field of their own: broad, low-alpha
-     and fixed, sitting behind everything. It never touches a data surface
-     (cards stay opaque on top), but it gives the chrome something to pick up,
-     and it is what makes the frost visible where content scrolls beneath it. */
-  .app-ambient::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background:
-      radial-gradient(1100px 620px at 18% -12%, rgba(43, 107, 255, 0.20), transparent 62%),
-      radial-gradient(900px 560px at 92% 4%, rgba(43, 107, 255, 0.13), transparent 60%),
-      radial-gradient(760px 520px at 60% 108%, rgba(97, 147, 255, 0.09), transparent 66%);
   }
 
   /* Frosted, for the isometric cards and anything that overlaps a glow. */
@@ -885,35 +784,6 @@ body {
   .anim-sheet-top,
   .anim-accordion {
     animation-duration: 1ms !important;
-  }
-}
-
-/* Someone has asked their OS to cut transparency — usually because layered,
-   see-through surfaces make text genuinely hard to read. Honour it properly:
-   drop the blur and go fully opaque, rather than merely reducing it. A weaker
-   frost is still a frost. */
-@media (prefers-reduced-transparency: reduce) {
-
-  /* Cancels the blur by emptying the variables Tailwind's backdrop-blur
-     utilities compose from, rather than by declaring `backdrop-filter: none`
-     — which this build would rewrite to the prefixed property and quietly
-     fail to apply, leaving the effect on for exactly the people who asked
-     for it to be off. */
-  .glass-panel,
-  .glass-bar,
-  .glass {
-    --tw-backdrop-blur: ;
-    --tw-backdrop-saturate: ;
-  }
-
-  .glass-panel,
-  .glass {
-    background: var(--surface) !important;
-    border-color: var(--border-strong) !important;
-  }
-
-  .glass-bar {
-    background: var(--bg) !important;
   }
 
   html {
