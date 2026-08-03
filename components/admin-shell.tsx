@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, History, LayoutDashboard, Scale, FileText, MessagesSquare, BarChart3 } from "lucide-react";
+import { Building2, History, LayoutDashboard, FileText, MessagesSquare, BarChart3 } from "lucide-react";
 import SignOutButton from "@/components/sign-out-button";
 import AskWidget from "@/components/ask-widget";
 
@@ -10,7 +10,6 @@ const nav = [
     { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/admin/clients", label: "Clients", icon: Building2 },
     { href: "/admin/payments", label: "All payments", icon: History },
-    { href: "/admin/ledger", label: "Tax ledger", icon: Scale },
     { href: "/admin/audit-pack", label: "Audit pack", icon: FileText },
     { href: "/admin/messages", label: "Messages", icon: MessagesSquare },
     // "Ask" is deliberately not here — it lives in the floating launcher.

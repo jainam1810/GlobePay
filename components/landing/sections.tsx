@@ -160,7 +160,7 @@ export function GlobalPayroll() {
                         {[
                             { v: <CountUp to={1} />, l: "Transaction, however many contractors" },
                             { v: <CountUp to={0} />, l: "Custody — funds never touch us" },
-                            { v: <CountUp to={3} />, l: "Countries with tax handled" },
+                            { v: <CountUp to={3} />, l: "Countries paid so far" },
                         ].map((s, i) => (
                             <StaggerItem key={i}>
                                 <div className="text-[28px] font-medium tracking-[-0.03em] text-white">{s.v}</div>
@@ -262,7 +262,7 @@ export function Platform() {
                             <h3 className="text-[19px] font-medium tracking-[-0.02em]">Proof You Can Hand an Auditor</h3>
                             <p className="mt-2 max-w-sm text-[14px] leading-relaxed text-[var(--text-dim)]">
                                 Every invoice links to the transaction that settled it, with the FX rate
-                                and withholding frozen at the moment it was paid.
+                                frozen at the moment it was paid.
                             </p>
 
                             <div className="mt-7 rounded-2xl border border-[var(--accent-line)] bg-[var(--accent-soft)] p-5">
@@ -276,7 +276,7 @@ export function Platform() {
                                 <div className="mt-1 text-[13px] text-[var(--text-dim)]">12 contractors · 3 countries</div>
 
                                 <div className="mt-5 grid grid-cols-3 gap-2 text-center">
-                                    {[["Gross", "$18,400"], ["Withheld", "$620"], ["Net", "$17,780"]].map(([k, v]) => (
+                                    {[["Contractors", "12"], ["Countries", "3"], ["Signatures", "1"]].map(([k, v]) => (
                                         <div key={k} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-2 py-2.5">
                                             <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)]">{k}</div>
                                             <div className="mt-0.5 font-mono text-[13px]">{v}</div>
@@ -425,7 +425,7 @@ const PLANS = [
         price: "$0",
         unit: "/month",
         blurb: "The whole product on Base Sepolia. What the demo runs on.",
-        features: ["Unlimited contractors", "Batch payment runs", "AI invoice extraction", "Tax ledger + audit pack", "Testnet USDC"],
+        features: ["Unlimited contractors", "Batch payment runs", "AI invoice extraction", "Audit pack export", "Testnet USDC"],
         cta: "Open the app",
         href: "/login",
     },
@@ -444,7 +444,7 @@ const PLANS = [
         price: "Custom",
         unit: "",
         blurb: "For finance teams that need approvals and their own controls.",
-        features: ["Safe multisig payouts", "Role-based access", "Custom tax jurisdictions", "Data export + retention", "Dedicated onboarding"],
+        features: ["Safe multisig payouts", "Role-based access", "Custom approval rules", "Data export + retention", "Dedicated onboarding"],
         cta: "Talk to us",
         href: "/login",
     },
@@ -543,7 +543,7 @@ const PROOF = [
     {
         icon: FileText,
         title: "Rates frozen at pay time",
-        body: "FX and withholding are computed in code and stored as an immutable snapshot. Changing the rules later never rewrites what already happened.",
+        body: "FX is computed in code and stored as an immutable snapshot. Changing the rules later never rewrites what already happened.",
     },
     {
         icon: Sparkles,
@@ -617,8 +617,8 @@ const FAQ = [
         a: "Nothing happens. A payment run is a single transaction, so if any transfer in it would fail, the entire run reverts and no one is paid. That is deliberate — a half-completed payroll is far worse to unpick than one you simply retry.",
     },
     {
-        q: "How is withholding tax decided?",
-        a: "By where you and the contractor are. Same country and it is domestic, so your jurisdiction's withholding applies and you see gross, withheld and net. Different countries and it is cross-border: no withholding, the contractor self-reports, and the payment is recorded as your operating expense. Nigeria, Argentina and the Philippines are supported today.",
+        q: "Does GlobePay handle tax?",
+        a: "No, and deliberately so. Contractors are paid the full invoiced amount, and tax on that income is between them and their own authority — a company paying someone abroad usually has no registration in that country and no way to remit anything on their behalf. What GlobePay does is keep the record: who was paid, how much, on what date, at what exchange rate, with a transaction anyone can verify. That is what your accountant needs.",
     },
     {
         q: "Does the AI decide any of the numbers?",

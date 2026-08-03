@@ -8,11 +8,11 @@
 
 A **non-custodial stablecoin payroll platform** for paying international contractors.
 
-A company pays all its global freelancers in **USDC in one transaction, one signature** — from their **own wallet**. GlobePay **never holds funds or private keys**. On top of payments, AI reads messy invoices and the system auto-builds tax + audit records.
+A company pays all its global freelancers in **USDC in one transaction, one signature** — from their **own wallet**. GlobePay **never holds funds or private keys**. On top of payments, AI reads messy invoices and the system auto-builds the audit record.
 
 Origin: hackathon project (long judging deadline). Also being pitched to VCs. Solo-built.
 
-**Locked design principle:** *AI reads messy input; code generates clean/authoritative output.* The AI (Gemini) extracts invoice fields, but **all money math, tax, FX, and validation is done in code — never by the AI.**
+**Locked design principle:** *AI reads messy input; code generates clean/authoritative output.* The AI (Gemini) extracts invoice fields, but **all money math, FX, and validation is done in code — never by the AI.**
 
 **Custody promise (never violate):** the app orchestrates transfers but never takes custody. USDC flows caller-wallet → contractor-wallet. The database stores *metadata about* payments, never funds or keys.
 
@@ -62,27 +62,26 @@ One row per confirmed invoice. **Immutable snapshots** — all values (FX, tax) 
 Columns: `id, created_at, payee_name, payee_address, amount, currency, invoice_date, description, invoice_number, ai_confidence, ai_notes, tx_hash, local_amount, local_currency, fx_rate, fx_pinned_at, tax_country, withholding_rate, withheld_amount, net_amount, contractor_tax_id, tax_treatment, company_country`
 
 ### `company_profile`
-Single row (id=1). The company's HQ country — drives domestic-vs-cross-border tax logic.
+Single row (id=1). The company's HQ country, shown on records.
 Columns: `id, company_name, home_country`
 
 ---
 
-## Supported countries & tax logic
+## Supported countries
 
-**Supported for tax:** Nigeria, Argentina, Philippines (chosen for volatile currency + high crypto adoption → real need for stablecoin payroll). India/Brazil/Singapore were considered and dropped.
+**Nigeria, Argentina, Philippines** — chosen for volatile currency + high crypto adoption → real need for stablecoin payroll. India/Brazil/Singapore were considered and dropped.
 
-### Domestic vs cross-border (critical, computed in `app/api/records/route.ts`)
-Withholding tax is the **payer's** obligation and only applies when payer and payee are in the **same country**:
-- **Same country** (e.g. Nigerian company → Nigerian contractor) → `tax_treatment = 'domestic'`, apply that country's withholding, show gross→WHT→net.
-- **Cross-border** (e.g. UK company → Nigerian contractor) → `tax_treatment = 'cross_border'`, **no withholding**; contractor self-reports to their own authority; recorded as the company's **operating expense**. Company HQ is set via the topbar `CompanyBadge` and stored in `company_profile`.
+Country is recorded on every payment as a plain fact (where the contractor is), and drives FX pinning. It is not a tax claim.
 
-### Tax rules config: `lib/tax-rules.ts`
-Headline resident-contractor rates only (MVP). Each country has: `withholdingRate`, `withholdingLabel`, `thresholdNote`, `taxIdName`, `taxIdRegex`, `taxIdPlaceholder`, `classificationSignals[]`, `source`, `effectiveFrom`.
-- Nigeria: 5% WHT (Nigeria Tax Act 2025), TIN `NNNNNNNN-NNNN` or 10-digit
-- Argentina: 5%+ (RG 830 scale 5–31%), CUIT `XX-XXXXXXXX-X`, monotributistas exempt
-- Philippines: 5% EWT (≤₱3M), TIN `XXX-XXX-XXX`
-Functions: `getTaxRule(country)`, `computeWithholding(amount, country)` (math in CODE), `validateTaxId(id, country)`.
-Full progressive scales / thresholds / registration logic = **roadmap**, not built. Research report has all details.
+### GlobePay does NOT do tax — removed August 2026
+
+**Do not reintroduce withholding, net-of-tax, or domestic/cross-border treatment anywhere in the UI.**
+
+The reasoning, which is the product decision: withholding is the *payer's* obligation and only exists when payer and payee share a country. GlobePay's whole premise is paying contractors **abroad**, where the payer typically has no tax registration in the contractor's country and therefore no way to remit anything on their behalf. So the feature computed `$0.00` on essentially every real row while implying a service that was not being provided.
+
+What the product does instead: contractors are paid the full invoiced amount, and the record — who, how much, when, at what FX rate, with on-chain proof — is what the accountant needs. Tax on that income is between the contractor and their own authority.
+
+**Still in the schema, deliberately unused by the UI:** `withholding_rate`, `withheld_amount`, `net_amount`, `tax_treatment`, `contractor_tax_id`. Existing rows are immutable snapshots, so the columns were left rather than dropped — nothing reads them for display. `lib/tax-rules.ts` survives only for `taxIdName`/`validateTaxId`, used by the optional contractor-ID field on the roster forms.
 
 ---
 
@@ -92,13 +91,13 @@ Full progressive scales / thresholds / registration logic = **roadmap**, not bui
 app/
   page.tsx                  Payroll — reads contractors from DB, approve-once then batch disperse (1 tx)
   invoices/page.tsx         Drag-drop invoice → AI extract → human-confirm form → save record
-  records/page.tsx          Audit trail — tiered layout, domestic/cross-border tax panel, search
+  records/page.tsx          Audit trail — tiered layout, search
   contractors/page.tsx      Full CRUD roster + modal form (wallet + tax-id validation)
   dashboard/page.tsx        (check state)
   export/page.tsx           Placeholder — PDF audit-pack NOT built yet
   api/
     extract/route.ts        Gemini invoice OCR (forced JSON)
-    records/route.ts        POST computes FX pin + domestic/cross-border tax; GET lists
+    records/route.ts        POST computes FX pin; GET lists
     contractors/route.ts    GET list / POST create (isAddress wallet validation server-side)
     contractors/[id]/route.ts  PATCH edit / DELETE
     company/route.ts        GET / PATCH company HQ country
@@ -107,7 +106,7 @@ components/
   company-badge.tsx         HQ country selector (drives domestic/cross-border)
   connect-button.tsx, wallet-card.tsx, providers.tsx
 lib/
-  tax-rules.ts              Tax config + computeWithholding + validateTaxId (3 countries)
+  tax-rules.ts              Tax-ID formats + validateTaxId only (withholding no longer used)
   contractor-types.ts       DbContractor type, SUPPORTED_COUNTRIES, COMPANY_COUNTRIES, flagFor, avatarFor, truncate, formatUSD
   fx.ts                     getFxRate (fawazahmed0 CDN, historical + latest)
   match.ts                  findContractorByName — matches invoice payee → DB contractor (async, DB-backed)
@@ -145,7 +144,7 @@ Never commit `.env*` or `node_modules`. `SUPABASE_SERVICE_ROLE_KEY` is server-on
 
 ## Working style / conventions (important)
 
-- **Honest scoping.** Build the demo-critical slice; label the rest "roadmap." Don't build enterprise tax-engine complexity (progressive scales, treaty edge-cases) — headline rates only.
+- **Honest scoping.** Build the demo-critical slice; label the rest "roadmap." Don't build what the product cannot actually deliver — the tax module was removed for exactly this reason.
 - **Targeted "replace X with Y" edits**, one step at a time, brief summary after changes.
 - **Options-with-recommendation before building** anything non-trivial.
 - **Verify drift-prone facts** (contract addresses, token prices, API tiers, library versions) via search/docs rather than memory.
@@ -166,7 +165,7 @@ Scaffold → design system → wallet connect + live USDC transfer → **batch p
 - **Dashboard:** verify/build out.
 
 ### Known gotchas
-- Old records keep old tax treatment until deleted + re-saved (immutable snapshots — by design).
+- Records are immutable snapshots: changing logic never rewrites old rows (by design).
 - Wallet needs Base Sepolia ETH for gas — top up from CDP faucet before demos.
 - MetaMask hides untracked tokens & only logs self-sent activity — verify payments on Basescan, not MetaMask Activity. This is why reconciliation reads chain/tx data, not wallet UI.
 - `contracts/` must NOT become a git submodule (no nested `.git`).
