@@ -54,10 +54,10 @@ export default function LoginPage() {
             {/* ── form ── */}
             <div className="flex min-h-screen flex-col px-6 py-8 sm:px-10 lg:min-h-0">
                 <div className="flex items-center justify-between">
-                    <Link href="/" aria-label="GlobePay home"><Logo size={30} /></Link>
+                    <Link href="/" aria-label="GlobePay home" className="-my-2 py-2"><Logo size={30} /></Link>
                     <Link
                         href="/"
-                        className="inline-flex items-center gap-1.5 text-[13px] text-[var(--text-dim)] transition hover:text-white"
+                        className="-my-2 inline-flex items-center gap-1.5 py-2 text-[13px] text-[var(--text-dim)] transition hover:text-white"
                     >
                         <ArrowLeft size={14} /> Back
                     </Link>
