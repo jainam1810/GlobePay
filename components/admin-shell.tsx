@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, History, LayoutDashboard, FileText, MessagesSquare, BarChart3 } from "lucide-react";
-import SignOutButton from "@/components/sign-out-button";
+import { Building2, History, LayoutDashboard, FileText, MessagesSquare, BarChart3, Settings } from "lucide-react";
+import AccountMenu from "@/components/account-menu";
 import AskWidget from "@/components/ask-widget";
 
 const nav = [
@@ -43,15 +43,22 @@ export default function AdminShell({ children, email }: { children: React.ReactN
                     </nav>
                 </div>
                 <div>
-                    {email && <div className="px-2 pb-2 text-[11px] font-mono text-[var(--text-faint)] truncate">{email}</div>}
-                    <SignOutButton />
+                    <Link href="/admin/settings" className={`nav-item ${isActive("/admin/settings") ? "nav-item-active" : ""}`}>
+                        <Settings size={18} strokeWidth={1.8} />
+                        <span>Settings</span>
+                    </Link>
+                    <div className="my-2 h-px bg-[var(--border)]" />
+                    <AccountMenu email={email} role="globepay_admin" settingsHref="/admin/settings" variant="row" />
                 </div>
             </aside>
             <div className="flex-1 flex flex-col min-w-0">
                 <header className="flex items-center justify-between border-b border-[var(--border)] px-6 md:px-10 h-16">
                     <div className="md:hidden font-display text-lg font-semibold">GlobePay Admin</div>
                     <div className="flex-1" />
-                    <span className="pill"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" /> Base Sepolia</span>
+                    <div className="flex items-center gap-3">
+                        <span className="pill"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" /> Base Sepolia</span>
+                        <AccountMenu email={email} role="globepay_admin" settingsHref="/admin/settings" />
+                    </div>
                 </header>
                 <main className="flex-1 px-6 md:px-10 py-8 md:py-10">{children}</main>
             </div>

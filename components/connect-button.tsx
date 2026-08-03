@@ -1,7 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useAccount, useConnect, useDisconnect, useSwitchChain, type Connector } from "wagmi";
+import { useAccount, useConnect, useSwitchChain, type Connector } from "wagmi";
 import { baseSepolia } from "wagmi/chains";
+import { Check, Copy } from "lucide-react";
+import SafeLogo from "@/components/safe-logo";
+import { Tooltip } from "@/components/ui/overlays";
 
 const truncate = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
@@ -49,7 +52,6 @@ function pickable(connectors: readonly Connector[]) {
 export default function ConnectButton() {
     const { address, isConnected, chainId } = useAccount();
     const { connect, connectors, isPending } = useConnect();
-    const { disconnect } = useDisconnect();
     const { switchChain } = useSwitchChain();
     const [open, setOpen] = useState(false);
     const wrap = useRef<HTMLDivElement>(null);
@@ -87,20 +89,28 @@ export default function ConnectButton() {
                 >
                     {isPending ? "Connecting…" : "Connect Wallet"}
                 </button>
+                {/* w-72, not w-64: adding a 24px logo pushed "approve in your
+                    Safe app" into an ellipsis at the narrower width. */}
                 {open && (
-                    <div className="absolute right-0 mt-2 w-64 z-50 rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] shadow-xl overflow-hidden">
+                    <div className="absolute right-0 mt-2 w-72 z-50 rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] shadow-xl overflow-hidden">
                         {usable.map((c) => {
                             // An injected wallet names itself; only the two we
                             // register get copy of our own.
                             const l = LABELS[c.type] ?? { name: c.name, hint: "Browser extension" };
+                            // Extensions announce their own artwork over EIP-6963;
+                            // Safe arrives via WalletConnect, which announces none,
+                            // so that row was the only one rendering iconless.
+                            const isSafe = c.type === "walletConnect" || c.type === "safe";
                             return (
                                 <button
                                     key={c.uid}
                                     onClick={() => { connect({ connector: c }); setOpen(false); }}
                                     className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[var(--surface-2)] border-b border-[var(--border)] last:border-0"
                                 >
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    {c.icon && <img src={c.icon} alt="" aria-hidden className="h-6 w-6 shrink-0 rounded-md" />}
+                                    {isSafe
+                                        ? <SafeLogo size={24} className="shrink-0" />
+                                        /* eslint-disable-next-line @next/next/no-img-element */
+                                        : c.icon && <img src={c.icon} alt="" aria-hidden className="h-6 w-6 shrink-0 rounded-md" />}
                                     <span className="min-w-0">
                                         <span className="block text-sm font-medium truncate">{l.name}</span>
                                         {l.hint && <span className="block text-[11px] text-[var(--text-dim)] mt-0.5 truncate">{l.hint}</span>}
@@ -125,13 +135,41 @@ export default function ConnectButton() {
         );
     }
 
+    return <AddressChip address={address} />;
+}
+
+/**
+ * The connected address, which copies when clicked.
+ *
+ * It used to disconnect. That is the wrong thing to put under the only control
+ * that looks like a label: the address is the thing people reach for when they
+ * want to paste it somewhere, and losing your session is a surprising price for
+ * a misread. Disconnecting now lives in the account menu behind a confirmation,
+ * which is where an action you have to redo deliberately belongs.
+ */
+function AddressChip({ address }: { address?: `0x${string}` }) {
+    const [copied, setCopied] = useState(false);
+    if (!address) return null;
+
+    function copy() {
+        navigator.clipboard.writeText(address!).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1600);
+        });
+    }
+
     return (
-        <button
-            onClick={() => disconnect()}
-            title="Disconnect"
-            className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium font-mono hover:bg-[var(--surface-2)] transition-colors"
-        >
-            {address ? truncate(address) : ""}
-        </button>
+        <Tooltip content={copied ? "Copied" : "Copy wallet address"}>
+            <button
+                onClick={copy}
+                aria-label={`Copy wallet address ${address}`}
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--border-strong)] px-3.5 py-2 font-mono text-sm font-medium transition-colors hover:bg-[var(--surface-2)]"
+            >
+                {truncate(address)}
+                {copied
+                    ? <Check size={13} className="text-[var(--accent)]" />
+                    : <Copy size={13} className="text-[var(--text-faint)]" />}
+            </button>
+        </Tooltip>
     );
 }
