@@ -75,8 +75,9 @@ export default function ContactPage() {
                                 Talk to us
                             </h1>
                             <p className="mt-3 max-w-md text-[15px] leading-relaxed text-[var(--text-dim)]">
-                                GlobePay is small and solo-built, so your message goes straight to the
-                                person who wrote the thing. Expect a real reply, not a ticket number.
+                                Whether you&rsquo;re evaluating GlobePay for your payroll or reviewing how it
+                                works underneath, tell us what you need and you&rsquo;ll get a direct,
+                                specific answer — usually within one business day.
                             </p>
                         </Reveal>
 
@@ -115,7 +116,7 @@ export default function ContactPage() {
                                     </div>
 
                                     <label htmlFor="email" className="mb-1.5 mt-4 block text-[13px] font-medium text-[var(--text-dim)]">
-                                        Email
+                                        Your email
                                     </label>
                                     <input id="email" name="email" type="email" required autoComplete="email"
                                         placeholder="you@company.com" className={field} />
@@ -177,7 +178,7 @@ export default function ContactPage() {
                             <div className="mt-4 flex items-center gap-2 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
                                 <span className="dot dot-pending" />
                                 <span className="text-[12px] text-[var(--text-dim)]">
-                                    Running on Base Sepolia testnet — no real funds move yet.
+                                    Running on Ethereum Layer 2 &mdash; Base
                                 </span>
                             </div>
                         </div>
