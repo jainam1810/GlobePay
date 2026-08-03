@@ -13,6 +13,7 @@
 // rather than scrolling a merged list of everyone's payments. With 100 clients a
 // dropdown is the wrong control; a searchable index is not.
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
     Printer, AlertCircle, Loader2, FileText, Search, ChevronRight, X,
     ArrowLeft, Sheet, Building2, Copy, Check,
@@ -177,7 +178,11 @@ function ClientIndex({ records, onOpen }: { records: SavedRecord[]; onOpen: (c: 
 /* ── one company's pack ──────────────────────────────────────────────────── */
 
 function Pack({ records, scope, onBack }: { records: SavedRecord[]; scope?: string; onBack?: () => void }) {
-    const [q, setQ] = useState("");
+    // ?q=… arrives from the command palette, so picking an invoice there lands
+    // on this page already filtered to it rather than at the top of the list.
+    // Read once as the initial value: after that the box is the user's.
+    const params = useSearchParams();
+    const [q, setQ] = useState(() => params?.get("q") ?? "");
     const [country, setCountry] = useState(ALL);
     const [year, setYear] = useState(ALL);
     const [sort, setSort] = useState<SortKey>("date_desc");

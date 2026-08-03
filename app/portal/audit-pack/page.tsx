@@ -1,4 +1,5 @@
 "use client";
+import { Suspense } from "react";
 import AuditPack from "@/components/audit-pack";
 
 export default function PortalAuditPackPage() {
@@ -12,7 +13,11 @@ export default function PortalAuditPackPage() {
                     public transaction anyone can verify. One click to a PDF.
                 </p>
             </div>
-            <AuditPack />
+            {/* AuditPack reads ?q= to land pre-filtered on a record picked in
+                the command palette, and useSearchParams needs a boundary. */}
+            <Suspense fallback={null}>
+                <AuditPack />
+            </Suspense>
         </div>
     );
 }
