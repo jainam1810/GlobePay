@@ -10,6 +10,7 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { getSessionInfo } from "@/lib/auth";
+import { guard } from "@/lib/rate-limit";
 
 /** Per group. Enough to find what you meant, few enough to scan. */
 const LIMIT = 6;
@@ -37,6 +38,11 @@ export async function GET(req: Request) {
     try {
         const s = await getSessionInfo();
         if (!s) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
+        // Cheap per call, but three queries each — worth a ceiling so a
+        // script cannot walk the roster one letter at a time.
+        const over = await guard("search", s.userId);
+        if (over) return over;
 
         const raw = new URL(req.url).searchParams.get("q") ?? "";
         const q = safe(raw);

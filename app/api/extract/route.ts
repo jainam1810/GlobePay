@@ -1,8 +1,21 @@
 import { NextResponse } from "next/server";
 import { invoiceSchema, type ExtractedInvoice } from "@/lib/invoice-schema";
 import { getSessionInfo } from "@/lib/auth";
+import { guard } from "@/lib/rate-limit";
 
 const MODEL = "gemini-2.5-flash";
+
+/**
+ * What Gemini can read, and how much of it.
+ *
+ * Both were missing: dataUrl and mimeType went from the request body straight
+ * into the model. No cap meant an unbounded Buffer allocation from a request —
+ * a 500 MB data URL is a trivial way to exhaust the server's memory — and no
+ * allowlist meant the model was handed whatever content type the caller named.
+ * The messages route has had both since it was written; this one was the gap.
+ */
+const MAX_BYTES = 10 * 1024 * 1024;
+const ALLOWED = ["application/pdf", "image/png", "image/jpeg", "image/webp", "image/heic", "image/heif"];
 
 // Legacy invoice OCR — superseded by /api/import-freelancers. Kept for now,
 // but admin-gated so it can't burn Gemini quota unauthenticated.
@@ -10,9 +23,16 @@ export async function POST(req: Request) {
     try {
         const s = await getSessionInfo();
         if (!s || s.role !== "globepay_admin") return NextResponse.json({ error: "GlobePay admin only" }, { status: 403 });
+
+        const over = await guard("extract", s.userId);
+        if (over) return over;
+
         const { dataUrl, mimeType } = await req.json();
         if (!dataUrl || !mimeType) {
             return NextResponse.json({ error: "Missing file" }, { status: 400 });
+        }
+        if (!ALLOWED.includes(String(mimeType))) {
+            return NextResponse.json({ error: "Send a PDF or an image of the invoice." }, { status: 400 });
         }
 
         const apiKey = process.env.GEMINI_API_KEY;
@@ -22,6 +42,11 @@ export async function POST(req: Request) {
 
         const base64 = dataUrl.split(",")[1];
         if (!base64) return NextResponse.json({ error: "Invalid file data" }, { status: 400 });
+        // Measured from the encoded length rather than by decoding first, so an
+        // oversized payload is refused before it is ever held in memory.
+        if (Math.ceil(base64.length * 0.75) > MAX_BYTES) {
+            return NextResponse.json({ error: "That file is over 10 MB — send a smaller one." }, { status: 413 });
+        }
 
         const body = {
             contents: [{
