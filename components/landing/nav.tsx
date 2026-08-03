@@ -6,12 +6,14 @@ import { ArrowUpRight, Menu } from "lucide-react";
 import { Sheet } from "@/components/ui/overlays";
 import { Button } from "@/components/ui/kit";
 
+// Anchors resolve against the home page, so they still work from /contact.
 const LINKS = [
-    { href: "#how", label: "How it works" },
-    { href: "#platform", label: "Platform" },
-    { href: "#proof", label: "Proof" },
-    { href: "#pricing", label: "Pricing" },
-    { href: "#faq", label: "FAQ" },
+    { href: "/#how", label: "How it works" },
+    { href: "/#platform", label: "Platform" },
+    { href: "/#proof", label: "Proof" },
+    { href: "/#pricing", label: "Pricing" },
+    { href: "/#faq", label: "FAQ" },
+    { href: "/contact", label: "Contact" },
 ];
 
 export function Logo({ size = 32 }: { size?: number }) {
@@ -120,15 +122,14 @@ const FOOTER: { title: string; links: { label: string; href: string }[] }[] = [
         links: [
             { label: "Base", href: "https://base.org" },
             { label: "USDC", href: "https://www.circle.com/usdc" },
-            { label: "Disperse contract", href: "https://sepolia.basescan.org/address/0xfDA6e1FaEa69958407c8a5c49b1330c8cC54A897" },
         ],
     },
     {
         title: "Trust",
         links: [
             { label: "Non-custodial", href: "#proof" },
-            { label: "Verified source", href: "https://sepolia.basescan.org/address/0xfDA6e1FaEa69958407c8a5c49b1330c8cC54A897#code" },
             { label: "Audit pack", href: "#platform" },
+            { label: "Contact us", href: "/contact" },
         ],
     },
 ];
@@ -141,8 +142,8 @@ export function SiteFooter() {
                     <div className="max-w-xs">
                         <Logo size={30} />
                         <p className="mt-4 text-[13px] leading-relaxed text-[var(--text-dim)]">
-                            Non-custodial payroll for international contractors. Paid in USDC, from your
-                            own wallet, with the tax and audit trail written as you go.
+                            Non-custodial payroll for international freelancers. Paid in USDC, from your
+                            own wallet, with the audit trail written as you go.
                         </p>
                     </div>
 

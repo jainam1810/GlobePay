@@ -1,16 +1,50 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi";
+import { useAccount, useConnect, useDisconnect, useSwitchChain, type Connector } from "wagmi";
 import { baseSepolia } from "wagmi/chains";
 
 const truncate = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
-// Plain-language labels: clients are finance people, not crypto people.
+// Plain-language labels for the two connectors that are ours to describe.
+// Anything injected names itself — see pickable() below.
 const LABELS: Record<string, { name: string; hint: string }> = {
     safe: { name: "Safe", hint: "Your company multisig" },
     walletConnect: { name: "Safe / mobile wallet", hint: "Scan a QR or approve in your Safe app" },
-    injected: { name: "Browser wallet", hint: "MetaMask or similar extension" },
 };
+
+/**
+ * The wallets worth offering, each named as itself.
+ *
+ * wagmi turns on EIP-6963 discovery by default, so every extension that
+ * announces itself becomes its own connector — all with type "injected". The
+ * old code looked its label up by *type*, so MetaMask, Rabby and Phantom all
+ * rendered as the identical row "Browser wallet · MetaMask or similar
+ * extension", three times, with no way to tell which was which.
+ *
+ * Discovered connectors carry the wallet's real name and icon, so use those.
+ * Two more passes are needed on top:
+ *
+ *   · the generic injected() we register ourselves (id "injected") is a
+ *     fallback for when nothing announced itself. Once anything has, it is a
+ *     duplicate of a wallet already in the list, so it goes.
+ *   · some extensions announce twice under different rdns; dedupe by name.
+ */
+function pickable(connectors: readonly Connector[]) {
+    // Inside the Safe App the safe connector auto-connects, so the picker never
+    // shows there. Elsewhere it can't connect at all.
+    const usable = connectors.filter((c) => c.type !== "safe");
+    const discovered = usable.some((c) => c.type === "injected" && c.id !== "injected");
+
+    const seen = new Set<string>();
+    return usable
+        .filter((c) => !(discovered && c.id === "injected"))
+        .filter((c) => {
+            const key = c.type === "injected" ? c.name.toLowerCase() : c.type;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+}
 
 export default function ConnectButton() {
     const { address, isConnected, chainId } = useAccount();
@@ -20,9 +54,7 @@ export default function ConnectButton() {
     const [open, setOpen] = useState(false);
     const wrap = useRef<HTMLDivElement>(null);
 
-    // Inside the Safe App the safe connector auto-connects, so the picker never
-    // shows there. Elsewhere it's hidden because it can't connect at all.
-    const usable = connectors.filter((c) => c.type !== "safe");
+    const usable = pickable(connectors);
 
     useEffect(() => {
         if (!open) return;
@@ -58,15 +90,21 @@ export default function ConnectButton() {
                 {open && (
                     <div className="absolute right-0 mt-2 w-64 z-50 rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] shadow-xl overflow-hidden">
                         {usable.map((c) => {
-                            const l = LABELS[c.type] ?? { name: c.name, hint: "" };
+                            // An injected wallet names itself; only the two we
+                            // register get copy of our own.
+                            const l = LABELS[c.type] ?? { name: c.name, hint: "Browser extension" };
                             return (
                                 <button
                                     key={c.uid}
                                     onClick={() => { connect({ connector: c }); setOpen(false); }}
-                                    className="w-full text-left px-4 py-3 hover:bg-[var(--surface-2)] transition border-b border-[var(--border)] last:border-0"
+                                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[var(--surface-2)] border-b border-[var(--border)] last:border-0"
                                 >
-                                    <div className="text-sm font-medium">{l.name}</div>
-                                    {l.hint && <div className="text-[11px] text-[var(--text-dim)] mt-0.5">{l.hint}</div>}
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    {c.icon && <img src={c.icon} alt="" aria-hidden className="h-6 w-6 shrink-0 rounded-md" />}
+                                    <span className="min-w-0">
+                                        <span className="block text-sm font-medium truncate">{l.name}</span>
+                                        {l.hint && <span className="block text-[11px] text-[var(--text-dim)] mt-0.5 truncate">{l.hint}</span>}
+                                    </span>
                                 </button>
                             );
                         })}

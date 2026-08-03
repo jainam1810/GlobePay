@@ -83,7 +83,7 @@ function Empty() {
             <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)] mb-4"><FileText size={20} /></div>
             <div className="text-xl font-medium tracking-[-0.02em]">Nothing to export yet</div>
             <p className="text-[var(--text-dim)] text-sm mt-2 max-w-md mx-auto">
-                Confirm a payment run and every payment lands here — tax treatment, exchange rate and on-chain proof included.
+                Confirm a payment run and every payment lands here — amount, exchange rate and on-chain proof included.
             </p>
         </div>
     );
@@ -227,7 +227,7 @@ function Pack({ records, scope, onBack }: { records: SavedRecord[]; scope?: stri
         // Every column, including the ones the screen folds away — a spreadsheet
         // has no width limit and this is the file people reconcile against.
         const csv = toCsv(
-            ["Date paid", "Contractor", "Country", "Wallet address", "Amount (USD)",
+            ["Date paid", "Freelancer", "Country", "Wallet address", "Amount (USD)",
                 "Local amount", "Local currency", "FX rate", "FX pinned", "Invoice", "Description",
                 "Transaction hash", "Paid from"],
             rows.map((r) => [
@@ -330,7 +330,7 @@ function Pack({ records, scope, onBack }: { records: SavedRecord[]; scope?: stri
                 <div className="grid grid-cols-3 gap-px bg-[var(--border)] border-b border-[var(--border)]">
                     <Stat label="Total paid" value={`$${money(totals.gross)}`} accent />
                     <Stat label="Payments" value={`${rows.length}`} />
-                    <Stat label="Contractors" value={`${totals.people}`} sub={`${totals.countries} countr${totals.countries === 1 ? "y" : "ies"}`} />
+                    <Stat label="Freelancers" value={`${totals.people}`} sub={`${totals.countries} countr${totals.countries === 1 ? "y" : "ies"}`} />
                 </div>
 
                 {rows.length === 0 ? (
@@ -345,9 +345,8 @@ function Pack({ records, scope, onBack }: { records: SavedRecord[]; scope?: stri
 
                 <div className="px-5 md:px-7 py-4 border-t border-[var(--border)] text-[11px] text-[var(--text-faint)] leading-relaxed">
                     Each payment is anchored to a public blockchain transaction; the proof reference is that transaction&rsquo;s
-                    hash, verifiable by anyone on Basescan without trusting GlobePay or the payer. Exchange rates are those
-                    recorded on the day of payment and are never recalculated. Contractors are paid the full invoiced amount;
-                    any tax on that income is a matter between the contractor and their own authority.
+                    hash, verifiable by anyone without trusting GlobePay or the payer. Exchange rates are those recorded on
+                    the day of payment and are never recalculated. Freelancers are paid the full invoiced amount.
                 </div>
             </div>
         </div>
@@ -365,7 +364,7 @@ function Table({ rows }: { rows: SavedRecord[] }) {
             <thead className="audit-thead sticky top-0 z-10 bg-[var(--surface-2)]">
                 <tr className="text-[11px] uppercase tracking-wider text-[var(--text-faint)]">
                     <Th className="w-[84px]">Date</Th>
-                    <Th>Contractor</Th>
+                    <Th>Freelancer</Th>
                     <Th className="hidden lg:table-cell w-[124px]">Country</Th>
                     <Th className="hidden md:table-cell w-[124px]">Invoice</Th>
                     <Th className="hidden xl:table-cell w-[136px]">Wallet</Th>

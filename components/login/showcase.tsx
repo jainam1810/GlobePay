@@ -3,7 +3,7 @@
 //
 // Its job is to say what GlobePay is to someone staring at a password box, and
 // to do it without leaking anything. Every figure and name here is invented or
-// public: the contract address is on Basescan, and no client, contractor,
+// public: the contract address is on Basescan, and no client, freelancer,
 // wallet or amount from the database appears on this screen. A sign-in page is
 // visible to anyone who can reach the URL, including people who fail the login.
 //
@@ -22,7 +22,7 @@ const SLIDES = [
     {
         icon: Layers,
         title: "One signature pays everyone",
-        body: "A payroll run is a single transaction, however many contractors are in it. Approve USDC once, then every run afterwards is one signature.",
+        body: "A payroll run is a single transaction, however many freelancers are in it. Approve USDC once, then every run afterwards is one signature.",
         stat: "1",
         statLabel: "transaction per payroll run",
     },
