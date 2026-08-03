@@ -117,7 +117,7 @@ export function Sheet({ open, onOpenChange, title, children }: {
         <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
             <DialogPrimitive.Portal>
                 <DialogPrimitive.Overlay className="anim-fade fixed inset-0 z-[90] bg-black/65 backdrop-blur-sm" />
-                <DialogPrimitive.Content className="anim-sheet-top glass-bar backdrop-blur-xl backdrop-saturate-150 fixed inset-x-0 top-0 z-[95] border-b p-5 shadow-2xl">
+                <DialogPrimitive.Content className="anim-sheet-top fixed inset-x-0 top-0 z-[95] border-b border-[var(--border)] bg-[var(--bg-2)] p-5 shadow-2xl">
                     <div className="flex items-center justify-between">
                         <DialogPrimitive.Title className="text-[15px] font-medium">{title}</DialogPrimitive.Title>
                         <DialogPrimitive.Close className="rounded-lg p-1.5 text-[var(--text-dim)] transition hover:bg-[var(--surface-2)] hover:text-white">
