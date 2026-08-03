@@ -12,6 +12,7 @@ const LINKS = [
     { href: "/#platform", label: "Platform" },
     { href: "/#proof", label: "Proof" },
     { href: "/#pricing", label: "Pricing" },
+    { href: "/#roadmap", label: "Roadmap" },
     { href: "/#faq", label: "FAQ" },
     { href: "/contact", label: "Contact" },
 ];

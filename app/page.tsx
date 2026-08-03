@@ -6,7 +6,7 @@
 // lag however fast you spin it — and it breaks the platform's own momentum,
 // trackpad and keyboard behaviour. The reveals carry the motion instead.
 import {
-    Hero, GlobalPayroll, Platform, PaymentRun, InvoiceAI, Pricing, Proof, Faq, Closer,
+    Hero, GlobalPayroll, Platform, PaymentRun, InvoiceAI, Pricing, Proof, Roadmap, Faq, Closer,
 } from "@/components/landing/sections";
 import { SiteNav, SiteFooter } from "@/components/landing/nav";
 
@@ -22,6 +22,7 @@ export default function Home() {
                 <InvoiceAI />
                 <Pricing />
                 <Proof />
+                <Roadmap />
                 <Faq />
                 <Closer />
             </main>

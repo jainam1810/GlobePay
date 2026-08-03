@@ -9,6 +9,8 @@ import { Loader2, CheckCircle2, ShieldCheck, Send, AlertCircle, History, Wallet 
 import { USDC_ADDRESS } from "@/lib/usdc";
 import { DISPERSE_ADDRESS, disperseAbi } from "@/lib/disperse";
 import { flagFor, avatarFor, truncate, formatUSD } from "@/lib/contractor-types";
+import { preflight, type Preflight } from "@/lib/preflight";
+import Confirm from "@/components/confirm";
 import type { DbClient, PayrollRun } from "@/lib/clients";
 
 // Testnet convention (as before): each recipient receives 1 test USDC on-chain;
@@ -46,9 +48,13 @@ export default function PortalHome() {
     const [myClient, setMyClient] = useState<DbClient | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [busyRun, setBusyRun] = useState<string | null>(null);
-    const [phase, setPhase] = useState<"idle" | "approving" | "paying">("idle");
+    const [phase, setPhase] = useState<"idle" | "checking" | "approving" | "paying">("idle");
     const [doneRun, setDoneRun] = useState<string | null>(null);
     const [proposedRun, setProposedRun] = useState<string | null>(null);
+    // Set when the pre-flight found wallets that can't receive — drives the
+    // dialog that offers to pay everybody else.
+    const [blocker, setBlocker] = useState<{ run: PayrollRun; report: Preflight } | null>(null);
+    const [skipped, setSkipped] = useState<{ count: number; total: number } | null>(null);
 
     function load() {
         fetch("/api/payroll-runs")
@@ -93,11 +99,60 @@ export default function PortalHome() {
         ]);
     }
 
-    async function confirmRun(run: PayrollRun) {
+    /**
+     * Ask the chain whether this run would go through, before anyone signs.
+     *
+     * A batch is one transaction, so a single unpayable wallet takes the whole
+     * run down with it. Finding that out by signing and watching it revert costs
+     * gas and pays nobody; finding out here costs one view call. If some wallets
+     * can't receive, the client is shown exactly who and can pay everybody else.
+     */
+    async function check(run: PayrollRun): Promise<Preflight | null> {
+        if (!publicClient || !address) return null;
+        try {
+            return await preflight(publicClient, {
+                token: USDC_ADDRESS,
+                spender: DISPERSE_ADDRESS,
+                sender: address,
+                recipients: run.line_items.map((li) => li.wallet),
+                amounts: run.line_items.map(() => parseUnits(PER_PERSON, 6)),
+            });
+        } catch {
+            // A pre-flight is a courtesy, not a gate. If the RPC won't answer,
+            // fall through and let the wallet's own estimate decide.
+            return null;
+        }
+    }
+
+    async function startRun(run: PayrollRun) {
+        setBusyRun(run.id); setError(null); setPhase("checking");
+        const report = await check(run);
+        setPhase("idle"); setBusyRun(null);
+
+        if (report && report.senderBlocked) {
+            setError("This wallet can't send USDC. Check the address you're connected with, or get in touch and we'll help.");
+            return;
+        }
+        if (report && report.shortfall > 0n) {
+            setError(`Not enough USDC — you're ${formatUSD(Number(formatUnits(report.shortfall, 6)))} short of the ${formatUSD(Number(formatUnits(report.total, 6)))} this run needs.`);
+            return;
+        }
+        // Some wallets can't receive. Don't sign anything — ask first.
+        if (report && report.blocked.length > 0) {
+            setBlocker({ run, report });
+            return;
+        }
+        await confirmRun(run);
+    }
+
+    async function confirmRun(run: PayrollRun, skipWallets: string[] = []) {
         if (!publicClient) return;
         setBusyRun(run.id); setError(null);
         try {
-            const needed = parseUnits(String(run.line_items.length * Number(PER_PERSON)), 6);
+            const skip = new Set(skipWallets.map((w) => w.toLowerCase()));
+            const lines = run.line_items.filter((li) => !skip.has(li.wallet.toLowerCase()));
+            if (lines.length === 0) throw new Error("There's nobody left to pay in this run.");
+            const needed = parseUnits(String(lines.length * Number(PER_PERSON)), 6);
             if (allowance === undefined || (allowance as bigint) < needed) {
                 setPhase("approving");
                 const approveHash = await writeContractAsync({
@@ -120,8 +175,8 @@ export default function PortalHome() {
             }
 
             setPhase("paying");
-            const recipients = run.line_items.map((li) => li.wallet as `0x${string}`);
-            const amounts = run.line_items.map(() => parseUnits(PER_PERSON, 6));
+            const recipients = lines.map((li) => li.wallet as `0x${string}`);
+            const amounts = lines.map(() => parseUnits(PER_PERSON, 6));
             const hash = await writeContractAsync({
                 address: DISPERSE_ADDRESS, abi: disperseAbi, functionName: "disperseToken",
                 args: [USDC_ADDRESS, recipients, amounts],
@@ -144,10 +199,17 @@ export default function PortalHome() {
             // Tell the server: it verifies the tx on-chain and files the receipt.
             const r = await fetch(`/api/payroll-runs/${run.id}`, {
                 method: "PATCH", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "executed", txHash: hash }),
+                // Only the wallets actually in the transaction get a ledger
+                // record — a run that skipped somebody must not file a receipt
+                // saying they were paid.
+                body: JSON.stringify({
+                    action: "executed", txHash: hash,
+                    paidWallets: lines.map((li) => li.wallet),
+                }),
             });
             const j = await r.json();
             if (!r.ok) throw new Error(j?.error || "Payment sent, but filing the receipt failed — it will appear after the next import.");
+            setSkipped(skipWallets.length ? { count: skipWallets.length, total: run.line_items.length } : null);
             setDoneRun(run.id);
             await refetchBalance();   // show the deduction immediately
             load();
@@ -184,7 +246,10 @@ export default function PortalHome() {
             )}
             {doneRun && (
                 <div className="fade-up notice mt-6 rounded-xl px-4 py-3 text-sm flex items-center gap-2 flex-wrap">
-                    <CheckCircle2 size={16} /> Payroll confirmed — everyone paid in one transaction.
+                    <CheckCircle2 size={16} />
+                    {skipped
+                        ? `Paid ${skipped.total - skipped.count} of ${skipped.total}. The ${skipped.count} we couldn't reach are still owed — we'll prepare a run for them once their wallets are sorted.`
+                        : "Payroll confirmed — everyone paid in one transaction."}
                     <Link className="underline underline-offset-2 font-medium" href="/portal/payments">View receipt →</Link>
                 </div>
             )}
@@ -244,14 +309,14 @@ export default function PortalHome() {
                                     <div className="text-[11px] text-[var(--text-dim)] max-w-sm leading-relaxed">
                                         <ShieldCheck size={13} className="inline mr-1 text-[var(--accent)]" />
                                         {viaSafe
-                                            ? "This queues the payroll in your Safe for the other signers to approve. If anything fails, the whole payment rolls back — no one gets half-paid."
-                                            : "One signature pays everyone at once. If anything fails, the whole payment rolls back — no one gets half-paid."}
+                                            ? "Every wallet is checked before this is queued in your Safe, so a run only goes out if it can land."
+                                            : "Every wallet is checked before you sign. If one can't be paid, you'll be told who — and you can still pay everyone else."}
                                     </div>
-                                    <button onClick={() => confirmRun(run)}
+                                    <button onClick={() => startRun(run)}
                                         disabled={!isConnected || wrongNetwork || wrongWallet || insufficientUsdc || busyRun !== null || !DISPERSE_ADDRESS}
                                         className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
                                         {busyRun === run.id
-                                            ? <><Loader2 size={16} className="animate-spin" /> {phase === "approving" ? "Authorising…" : viaSafe ? "Queueing in Safe…" : "Paying everyone…"}</>
+                                            ? <><Loader2 size={16} className="animate-spin" /> {phase === "checking" ? "Checking wallets…" : phase === "approving" ? "Authorising…" : viaSafe ? "Queueing in Safe…" : "Paying everyone…"}</>
                                             : <><Send size={16} /> {viaSafe ? `Propose payroll (${run.line_items.length})` : `Confirm & pay ${run.line_items.length}`}</>}
                                     </button>
                                 </div>
@@ -302,6 +367,51 @@ export default function PortalHome() {
                     </div>
                 </div>
             )}
+
+            {/* Some wallets can't receive. Nothing has been signed at this point,
+                so the choice is genuinely open: pay the rest, or stop and fix it. */}
+            <Confirm
+                open={!!blocker}
+                onOpenChange={(v) => { if (!v) setBlocker(null); }}
+                title={blocker ? `${blocker.report.blocked.length} of ${blocker.run.line_items.length} can't be paid` : ""}
+                body={blocker ? (
+                    <div className="space-y-3">
+                        <p>
+                            Nothing has been sent yet. These wallets would reject the payment and take
+                            the whole run down with them, so we stopped before you signed.
+                        </p>
+                        <ul className="divide-y divide-[var(--border)] rounded-lg border border-[var(--border)] bg-[var(--surface-2)]">
+                            {blocker.report.blocked.slice(0, 6).map((b) => {
+                                const li = blocker.run.line_items[b.index];
+                                return (
+                                    <li key={b.index} className="px-3 py-2">
+                                        <div className="text-[13px] text-[var(--text)]">{li?.name ?? "Unknown"}</div>
+                                        <div className="text-[11px] text-[var(--text-faint)]">{b.reason}</div>
+                                    </li>
+                                );
+                            })}
+                            {blocker.report.blocked.length > 6 && (
+                                <li className="px-3 py-2 text-[11px] text-[var(--text-faint)]">
+                                    and {blocker.report.blocked.length - 6} more
+                                </li>
+                            )}
+                        </ul>
+                        <p className="text-[12px] text-[var(--text-faint)]">
+                            Paying the rest now leaves the others owed — they stay on our books and we&rsquo;ll
+                            prepare a run for them once their wallets are sorted.
+                        </p>
+                    </div>
+                ) : null}
+                confirmLabel={blocker
+                    ? `Pay the other ${blocker.run.line_items.length - blocker.report.blocked.length}`
+                    : "Pay the rest"}
+                onConfirm={() => {
+                    if (!blocker) return;
+                    const { run, report } = blocker;
+                    setBlocker(null);
+                    return confirmRun(run, report.blocked.map((b) => b.wallet));
+                }}
+            />
         </div>
     );
 }
