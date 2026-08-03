@@ -340,34 +340,20 @@ export function PaymentRun() {
                                     </div>
                                 </div>
 
-                                {/* This card is a picture of the confirm screen, not
-                                    the screen itself — so the button is inert and
-                                    marked as decoration. A control that looks live
-                                    and does nothing when clicked reads as broken
-                                    software, which is the last impression a payments
-                                    product wants. The real action is below. */}
-                                <div
-                                    aria-hidden
-                                    className="btn-pill btn-fill mt-5 w-full cursor-default select-none justify-center py-2.5 text-[14px] opacity-90"
-                                >
-                                    Send payment
+                                {/* No button here. This card explains what a run is,
+                                    and a control that looks live but isn't reads as
+                                    broken software — the last impression a payments
+                                    product wants. The section states the fact
+                                    instead; the page already has real ways in. */}
+                                <div className="mt-5 flex items-start gap-2 border-t border-[var(--accent-line)] pt-4 text-[12px] leading-relaxed text-[var(--text-dim)]">
+                                    <ShieldCheck size={14} className="mt-0.5 shrink-0 text-[var(--ok)]" />
+                                    <span>
+                                        Sent with one signature, after every address has been
+                                        checked against the chain.
+                                    </span>
                                 </div>
-                                <p className="mt-3 text-center text-[11px] text-[var(--text-faint)]">
-                                    One signature · addresses verified before sending
-                                </p>
                             </div>
                         </div>
-                    </div>
-                </Reveal>
-
-                <Reveal index={4}>
-                    <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-                        <Button asChild size="lg">
-                            <Link href="/login">Try a payment run <ArrowUpRight size={16} /></Link>
-                        </Button>
-                        <span className="text-[12px] text-[var(--text-faint)]">
-                            Testnet — real signatures, no real money
-                        </span>
                     </div>
                 </Reveal>
             </div>
@@ -411,18 +397,20 @@ export function InvoiceAI() {
                                     className="rounded-lg bg-[#EFEAE0] p-5 text-[#2A2722] shadow-[0_18px_40px_-16px_rgba(0,0,0,0.8)]"
                                     style={{ transform: "rotate(-0.7deg)" }}
                                 >
+                                    {/* Every field the panel on the right claims to have
+                                        extracted has to be visibly present here — name,
+                                        invoice number, date, country, amount, wallet.
+                                        Otherwise the demo is showing the model inventing
+                                        data, which is the opposite of the point. */}
                                     <div className="flex items-start justify-between gap-4 border-b border-[#CFC7B8] pb-3">
                                         <div>
-                                            {/* Matches the extracted panel exactly. It used to read
-                                                "A. Eze", which quietly claimed the model could expand
-                                                an initial into a full name — it can't, and shouldn't
-                                                be implied to. */}
                                             <div className="text-[15px] font-semibold tracking-tight">Amara Eze</div>
-                                            <div className="text-[10px] text-[#6E675C]">Backend engineering · Lagos</div>
+                                            <div className="text-[10px] text-[#6E675C]">Backend engineering · Lagos, Nigeria</div>
                                         </div>
                                         <div className="text-right text-[10px] text-[#6E675C]">
                                             <div>INVOICE</div>
                                             <div className="font-mono">INV-2026-014</div>
+                                            <div className="mt-0.5 font-mono">31 July 2026</div>
                                         </div>
                                     </div>
 
@@ -800,7 +788,7 @@ export function Roadmap() {
                 <Reveal index={2}>
                     <div className="mt-14 flex flex-col items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] px-5 py-4 sm:flex-row">
                         <span className="text-[13px] text-[var(--text-dim)]">
-                            Want one of these sooner? Tell us — what customers ask for is what gets built first.
+                            Want anything else or one of these sooner? Tell us — what customers ask for is what gets built first.
                         </span>
                         <Link
                             href="/contact"
