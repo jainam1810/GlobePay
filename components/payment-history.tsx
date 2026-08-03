@@ -4,7 +4,7 @@
 // client: only their own), so this component works in both worlds.
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { History, CheckCircle2, ExternalLink, Loader2, AlertCircle, Copy, Check, ChevronDown, DownloadCloud, Send } from "lucide-react";
+import { History, CheckCircle2, ExternalLink, Loader2, AlertCircle, Copy, Check, ChevronDown, DownloadCloud } from "lucide-react";
 import type { SavedPayment } from "@/lib/payments";
 import { truncate, avatarFor, currencyForCountry } from "@/lib/contractor-types";
 import Flag from "@/components/flag";
@@ -182,9 +182,7 @@ function PaymentRow({ p, found = false }: { p: SavedPayment; found?: boolean }) 
                 if (found && el) el.scrollIntoView({ block: "center", behavior: "smooth" });
             }}>
             <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-4 p-5 text-left hover:bg-[var(--surface-2)] transition-colors">
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--accent-soft)] border border-[var(--accent-line)] text-[var(--accent)]">
-                    <Send size={16} />
-                </div>
+                <RecipientStack recipients={p.recipients} />
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-[15px]">Paid {headline}</span>
@@ -357,6 +355,53 @@ function Footnote() {
                     chain itself moves a flat 1 USDC per person, and in production that USD figure is what gets sent.
                 </div>
             </div>
+        </div>
+    );
+}
+
+/**
+ * Who was in this payment run, as overlapping avatars.
+ *
+ * Every row used to open with the same send icon, which meant the list read as
+ * one repeated shape and told you nothing until you expanded a row. The people
+ * are the thing that differs between runs, so they belong in the row: different
+ * names give different initials and different gradients, and the count is
+ * legible without opening anything.
+ */
+function RecipientStack({ recipients }: { recipients: SavedPayment["recipients"] }) {
+    const shown = recipients.slice(0, 3);
+    const extra = recipients.length - shown.length;
+
+    return (
+        <div className="flex shrink-0 items-center">
+            {shown.map((r, i) => {
+                const name = r.name ?? "Unknown wallet";
+                const initials = r.name
+                    ? r.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+                    : "0x";
+                const [g1, g2] = avatarFor(name);
+                return (
+                    <span
+                        key={r.wallet}
+                        title={name}
+                        // Overlapped, and ringed in the page colour so the edges
+                        // stay legible where they cross.
+                        className="grid h-9 w-9 place-items-center rounded-full font-display text-[11px] font-semibold text-[var(--accent-ink)] ring-2 ring-[var(--surface)]"
+                        style={{ background: `linear-gradient(135deg, ${g1}, ${g2})`, marginLeft: i ? -10 : 0 }}
+                    >
+                        {initials}
+                    </span>
+                );
+            })}
+            {extra > 0 && (
+                <span
+                    title={`${extra} more`}
+                    className="grid h-9 w-9 place-items-center rounded-full border border-[var(--border-strong)] bg-[var(--surface-2)] font-mono text-[11px] text-[var(--text-dim)] ring-2 ring-[var(--surface)]"
+                    style={{ marginLeft: -10 }}
+                >
+                    +{extra}
+                </span>
+            )}
         </div>
     );
 }

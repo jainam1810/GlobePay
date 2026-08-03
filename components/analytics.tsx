@@ -24,6 +24,7 @@ import { Loader2, AlertCircle, BarChart3, Table2 } from "lucide-react";
 import type { SavedRecord } from "@/lib/records";
 
 import { format, parseISO } from "date-fns";
+import { Select as UiSelect, toOptions } from "@/components/ui/select";
 
 // Recharts needs a literal — it cannot resolve a CSS custom property here.
 // Keep this in step with --accent in globals.css.
@@ -332,10 +333,8 @@ function Kpi({ label, value }: { label: string; value: string }) {
 function Select({ value, onChange, options, label }: {
     value: string; onChange: (v: string) => void; options: [string, string][]; label: string;
 }) {
-    return (
-        <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}
-            className="text-[13px] px-2.5 py-1.5 rounded-lg bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-dim)] focus:outline-none focus:border-[var(--accent)] transition">
-            {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
-    );
+    // Delegates to the shared dropdown so every filter in the product opens the
+    // same panel. Kept as a local wrapper because the call sites already pass
+    // [value, label] tuples.
+    return <UiSelect value={value} onChange={onChange} options={toOptions(options)} label={label} className="py-1.5" />;
 }

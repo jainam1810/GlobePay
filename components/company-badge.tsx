@@ -30,7 +30,7 @@ export default function CompanyBadge() {
                         {COMPANY_COUNTRIES.map((c) => (
                             <button key={c} onClick={() => choose(c)}
                                 className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-[var(--surface-2)] transition ${c === country ? "text-[var(--accent)]" : "text-[var(--text-dim)]"}`}>
-                                <Flag country={c} /> {c}
+                                <Flag country={c} label={false} /> {c}
                             </button>
                         ))}
                     </div>
