@@ -94,9 +94,6 @@ export async function PATCH(req: Request) {
         if ("wallet_address" in patch && prev?.toLowerCase() !== next?.toLowerCase()) {
             const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
             void notifyWalletChanged({
-                // The notification address if they set one, else the address
-                // they sign in with — this notice is too important to drop.
-                to: data?.contact_email || s.email,
                 companyName: data?.company_name ?? "your company",
                 previous: prev,
                 next,

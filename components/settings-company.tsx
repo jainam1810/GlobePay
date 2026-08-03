@@ -45,7 +45,6 @@ export function CompanySection({ initial }: { initial: ClientSettings }) {
     const [form, setForm] = useState({
         company_name: initial.company_name,
         home_country: initial.home_country,
-        contact_email: initial.contact_email ?? "",
     });
     const [saved, setSaved] = useState(form);
     const [busy, setBusy] = useState(false);
@@ -71,7 +70,7 @@ export function CompanySection({ initial }: { initial: ClientSettings }) {
         <Section
             icon={Building2}
             title="Company"
-            description="Your name as it appears on the audit pack, and where payroll notices are sent."
+            description="Your name as it appears on the audit pack, and the country your payments are made from."
         >
             <form onSubmit={save} className="max-w-sm space-y-3">
                 <Field label="Company name">
@@ -85,9 +84,6 @@ export function CompanySection({ initial }: { initial: ClientSettings }) {
                         options={toOptions(COMPANY_COUNTRIES.map((c) => [c, c] as [string, string]))}
                         className="w-full"
                     />
-                </Field>
-                <Field label="Notification email" hint="Where we email you when a payroll is ready to approve. Leave blank for none.">
-                    <input type="email" value={form.contact_email} onChange={(e) => setForm({ ...form, contact_email: e.target.value })} placeholder="finance@yourcompany.com" className={inputCls} />
                 </Field>
                 <div className="flex items-center gap-2 pt-1">
                     <Flag country={form.home_country} size={16} />
