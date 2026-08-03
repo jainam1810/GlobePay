@@ -75,7 +75,9 @@ export default function ImportFreelancers({ clientId, onImported }: { clientId: 
                 <Sparkles size={13} className="mt-0.5 shrink-0 text-[var(--accent)]" />
                 Paste the client&rsquo;s freelancer list exactly as they sent it — email, spreadsheet rows, anything. The AI reads it; every wallet and amount is then re-validated in code before it touches the roster.
             </div>
-            <textarea rows={5} className={`${input} font-mono text-xs`} placeholder={"e.g.\nAkil - financial modelling, Argentina, pays $100/mo, wallet 0x59B2...\nChidi Okatar | NG | dev | 0x7a0e... | 230 USD"}
+            {/* Placeholder names are invented — a real roster entry here would
+                show one client's contractor to whoever opens the screen next. */}
+            <textarea rows={5} className={`${input} font-mono text-xs`} placeholder={"e.g.\nLucía - financial modelling, Argentina, pays $100/mo, wallet 0x59B2...\nAmara Eze | NG | dev | 0x7a0e... | 230 USD"}
                 value={text} onChange={(e) => setText(e.target.value)} />
             <div className="flex items-center gap-3 mt-3 flex-wrap">
                 <label className="inline-flex items-center gap-1.5 text-xs text-[var(--text-dim)] hover:text-[var(--text)] cursor-pointer transition">

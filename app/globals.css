@@ -19,27 +19,32 @@
 }
 
 :root {
-  --bg: #020112;
-  --surface: #0F0F19;
-  --surface-2: #161620;
-  --border: #20202C;
-  --border-strong: #2C2C3B;
+  /* Near-black, cooled slightly toward blue so the accent reads as a member of
+     the palette rather than a sticker on top of it. */
+  --bg: #07080D;
+  --bg-2: #0A0C13;
+  --surface: #0F1219;
+  --surface-2: #161A23;
+  --border: #1E222D;
+  --border-strong: #2B3040;
 
   --text: #FFFFFF;
-  --text-dim: #A1A1B5;
-  --text-faint: #6C6C82;
+  --text-dim: #9BA3B4;
+  --text-faint: #6A7284;
 
-  /* Indigo primary. --accent is kept as the name because 150+ call sites already
+  /* Blue primary. --accent is kept as the name because 150+ call sites already
      use it; changing the value here re-themes all of them at once. */
-  --accent: #4C50EA;
+  --accent: #2B6BFF;
   --accent-ink: #FFFFFF;
   /* text that sits ON the accent */
-  --accent-soft: rgba(76, 80, 234, 0.10);
-  --accent-line: rgba(76, 80, 234, 0.28);
-  --accent-glow: rgba(36, 70, 246, 0.30);
-  --electric: #2446F6;
-  --glow-mid: #343E6D;
-  --glow-out: #5565A9;
+  --accent-hi: #6193FF;
+  --accent-deep: #1B4BD8;
+  --accent-soft: rgba(43, 107, 255, 0.10);
+  --accent-line: rgba(43, 107, 255, 0.30);
+  --accent-glow: rgba(43, 107, 255, 0.35);
+  --electric: #2B6BFF;
+  --glow-mid: #26407F;
+  --glow-out: #4A6DBF;
 
   /* Semantic states. Every hardcoded rgba() in the app was folded into these so
      the palette lives in exactly one place. */
@@ -59,9 +64,19 @@
   --l-border: #E5E5ED;
 
   --radius: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 26px;
 
-  /* Motion. One curve and one duration so reveals feel like one system. */
+  /* Motion. One curve family and three durations, so every transition in the
+     product is recognisably the same system. Expo-out is the workhorse: it
+     leaves fast and settles slowly, which is what "responsive" feels like.
+     Spring is for anything a pointer is directly manipulating. */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast: 160ms;
+  --dur-mid: 300ms;
+  --dur-slow: 620ms;
   --reveal-duration: 1.4s;
 }
 
@@ -91,8 +106,8 @@ body::before {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(820px 520px at 88% -8%, rgba(36, 70, 246, 0.13), transparent 68%),
-    radial-gradient(620px 420px at 6% 108%, rgba(76, 80, 234, 0.07), transparent 70%);
+    radial-gradient(820px 520px at 88% -8%, rgba(43, 107, 255, 0.14), transparent 68%),
+    radial-gradient(620px 420px at 6% 108%, rgba(43, 107, 255, 0.07), transparent 70%);
 }
 
 body::after {
@@ -153,6 +168,165 @@ body {
 }
 
 @layer components {
+
+  /* ── surface language ──────────────────────────────────────────────────────
+     Three depths, and nothing improvises outside them: the page, a panel that
+     sits on it, and glass that floats above both. */
+
+  /* A hero/CTA panel: its own dark field with a blue light source in one
+     corner, so it reads as a lit object rather than a coloured rectangle. */
+  .panel {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border);
+    background:
+      radial-gradient(120% 90% at 82% 6%, rgba(43, 107, 255, 0.30), transparent 62%),
+      radial-gradient(90% 70% at 8% 100%, rgba(43, 107, 255, 0.16), transparent 66%),
+      linear-gradient(180deg, #0C1220 0%, #080A11 100%);
+  }
+
+  /* The blue CTA slab from the closer — the one place the accent owns the
+     whole surface instead of accenting it. */
+  .panel-accent {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-xl);
+    background:
+      radial-gradient(110% 120% at 78% 10%, rgba(120, 160, 255, 0.42), transparent 58%),
+      linear-gradient(150deg, var(--accent) 0%, var(--accent-deep) 58%, #0F2C86 100%);
+  }
+
+  /* Frosted, for the isometric cards and anything that overlaps a glow. */
+  .glass {
+    background: linear-gradient(150deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.03));
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.16) inset,
+      0 30px 80px -30px rgba(0, 0, 0, 0.85);
+  }
+
+  /* Fine engineering grid. Masked to a soft ellipse so it never reaches an
+     edge and turns into a visible seam. */
+  .grid-bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-size: 56px 56px;
+    -webkit-mask-image: radial-gradient(72% 62% at 50% 34%, #000 0%, transparent 78%);
+    mask-image: radial-gradient(72% 62% at 50% 34%, #000 0%, transparent 78%);
+  }
+
+  /* ── type effects ──────────────────────────────────────────────────────────
+     The headline treatment: bright at the start of the line, cooling toward
+     the end, so a big block of type has direction instead of sitting flat. */
+  .text-gradient {
+    background: linear-gradient(122deg, #FFFFFF 6%, #D6DDEC 40%, #8E9AB4 96%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .text-gradient-accent {
+    background: linear-gradient(115deg, #9FBEFF 0%, var(--accent) 52%, #1B4BD8 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* ── controls ─────────────────────────────────────────────────────────────
+     Fully-rounded, the way the reference does it. */
+  .btn-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    border-radius: 999px;
+    padding: 0.72rem 1.3rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+      transform var(--dur-fast) var(--ease-out-quart),
+      background var(--dur-fast) ease,
+      border-color var(--dur-fast) ease,
+      box-shadow var(--dur-mid) ease,
+      color var(--dur-fast) ease;
+  }
+
+  .btn-pill:active {
+    transform: scale(0.98);
+  }
+
+  .btn-fill {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: 1px solid transparent;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.22) inset,
+      0 12px 30px -12px var(--accent-glow);
+  }
+
+  .btn-fill:hover {
+    background: #3C79FF;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.28) inset,
+      0 16px 40px -10px var(--accent-glow);
+  }
+
+  /* Frosted secondary — the "View Live Demo" treatment. */
+  .btn-ghost {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  /* ── section furniture ────────────────────────────────────────────────── */
+
+  /* The little capsule that labels a section. Quiet on purpose: it orients you
+     without competing with the headline underneath it. */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.32rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: rgba(255, 255, 255, 0.035);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-dim);
+    letter-spacing: 0.01em;
+  }
+
+  /* A card that acknowledges the pointer. The border is what brightens —
+     moving the whole card on hover in a dense grid makes the page twitch. */
+  .card-lift {
+    transition:
+      border-color var(--dur-mid) ease,
+      background var(--dur-mid) ease,
+      transform var(--dur-mid) var(--ease-out-quart);
+  }
+
+  .card-lift:hover {
+    border-color: var(--border-strong);
+    background: var(--surface-2);
+    transform: translateY(-2px);
+  }
+
   .card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -288,6 +462,174 @@ body {
   }
 }
 
+/* ── Radix enter/exit ───────────────────────────────────────────────────────
+   Radix keeps a panel mounted while data-state="closed" so it can animate out;
+   these are the animations it holds it for. Written by hand rather than pulling
+   in tailwindcss-animate — it is four keyframes, and one fewer dependency to
+   track against Tailwind v4.
+
+   The accordion is the one that actually needs Radix: it measures the panel and
+   publishes --radix-accordion-content-height, which is the only way to get a
+   real height transition, since `height: auto` cannot be animated. */
+
+@keyframes accDown {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+
+  to {
+    height: var(--radix-accordion-content-height);
+    opacity: 1;
+  }
+}
+
+@keyframes accUp {
+  from {
+    height: var(--radix-accordion-content-height);
+    opacity: 1;
+  }
+
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
+
+.anim-accordion[data-state="open"] {
+  animation: accDown 280ms var(--ease-out-quart);
+}
+
+.anim-accordion[data-state="closed"] {
+  animation: accUp 220ms var(--ease-out-quart);
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.anim-pop[data-state="delayed-open"],
+.anim-pop[data-state="instant-open"],
+.anim-pop[data-state="open"] {
+  animation: popIn 140ms var(--ease-out-quart);
+}
+
+.anim-pop[data-state="closed"] {
+  animation: popIn 110ms var(--ease-out-quart) reverse;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.anim-fade[data-state="open"] {
+  animation: fadeIn 200ms ease;
+}
+
+.anim-fade[data-state="closed"] {
+  animation: fadeIn 160ms ease reverse;
+}
+
+@keyframes sheetDown {
+  from {
+    transform: translateY(-100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+.anim-sheet-top[data-state="open"] {
+  animation: sheetDown 320ms var(--ease-out-expo);
+}
+
+.anim-sheet-top[data-state="closed"] {
+  animation: sheetDown 220ms var(--ease-out-quart) reverse;
+}
+
+/* ── loading ────────────────────────────────────────────────────────────────
+   A skeleton stands in for content that is coming, so it must match the shape
+   of what lands — same height, same rhythm, same corner radius. A sweep moving
+   across it says "loading"; a pulse says "broken". */
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.055),
+      transparent);
+  animation: shimmer 1.5s infinite;
+}
+
+/* Logos and quotes that scroll on forever. Duplicated content plus a -50%
+   translate makes the seam invisible. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee var(--marquee-duration, 38s) linear infinite;
+}
+
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+/* Fades both ends so rows enter and leave instead of being cut off. */
+.edge-fade {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+}
+
+.edge-fade-r {
+  -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 84%, transparent);
+  mask-image: linear-gradient(90deg, #000 0%, #000 84%, transparent);
+}
+
+.edge-fade-y {
+  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+}
+
 @keyframes fadeUp {
   from {
     opacity: 0;
@@ -419,6 +761,29 @@ body {
     transition: opacity 200ms linear !important;
     transform: none !important;
     opacity: 1 !important;
+  }
+
+  /* The marquee stops dead — it is decorative, and endless sideways motion is
+     exactly what this setting is asking us not to do. The skeleton keeps a
+     still sweep-free surface but stays visible, since it is load-bearing:
+     without it there is no signal that anything is happening. */
+  .marquee-track {
+    animation: none !important;
+  }
+
+  .skeleton::after {
+    animation: none !important;
+    opacity: 0;
+  }
+
+  /* Overlays still need to appear and disappear — Radix waits for the
+     animation to end before unmounting — so they fade fast rather than
+     not animating at all. Sliding and scaling are dropped. */
+  .anim-pop,
+  .anim-fade,
+  .anim-sheet-top,
+  .anim-accordion {
+    animation-duration: 1ms !important;
   }
 
   html {
