@@ -1,10 +1,10 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, History, FileText, MessagesSquare, BarChart3 } from "lucide-react";
+import { Home, History, FileText, MessagesSquare, BarChart3, Settings } from "lucide-react";
 import ConnectButton from "@/components/connect-button";
 import AskWidget from "@/components/ask-widget";
-import SignOutButton from "@/components/sign-out-button";
+import AccountMenu from "@/components/account-menu";
 import Flag from "@/components/flag";
 
 const nav = [
@@ -47,9 +47,15 @@ export default function PortalShell({ children, companyName, homeCountry, email 
                         ))}
                     </nav>
                 </div>
+                {/* Settings sits with the nav it belongs to; who you are signed in
+                    as sits below a rule, where every app of this shape puts it. */}
                 <div>
-                    {email && <div className="px-2 pb-2 text-[11px] font-mono text-[var(--text-faint)] truncate">{email}</div>}
-                    <SignOutButton />
+                    <Link href="/portal/settings" className={`nav-item ${isActive("/portal/settings") ? "nav-item-active" : ""}`}>
+                        <Settings size={18} strokeWidth={1.8} />
+                        <span>Settings</span>
+                    </Link>
+                    <div className="my-2 h-px bg-[var(--border)]" />
+                    <AccountMenu email={email} role="client" settingsHref="/portal/settings" variant="row" />
                 </div>
             </aside>
             <div className="flex-1 flex flex-col min-w-0">
@@ -59,6 +65,7 @@ export default function PortalShell({ children, companyName, homeCountry, email 
                     <div className="flex items-center gap-3">
                         <span className="pill"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" /> Base Sepolia</span>
                         <ConnectButton />
+                        <AccountMenu email={email} role="client" settingsHref="/portal/settings" />
                     </div>
                 </header>
                 <main className="flex-1 px-6 md:px-10 py-8 md:py-10">{children}</main>

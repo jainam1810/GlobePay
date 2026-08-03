@@ -831,6 +831,14 @@ const FAQ = [
         a: "Wallet addresses have a built-in integrity check, and we run it before an address is ever saved or paid. Change one character and it fails on the spot. So the AI can read a wallet off a photo without a slip becoming a payment to nowhere. The one thing no check can catch is a valid address belonging to the wrong person — which is why you confirm every run before signing.",
     },
     {
+        q: "How do you know the wallet really belongs to that freelancer?",
+        a: "We ask them to prove it, the same way your bank checks a name against a sort code and account number before it lets you send. We send the freelancer a link, and they sign a short sentence — \"I am Ada, this wallet is mine\" — using the wallet itself. Only the person holding that wallet can produce that signature, so it can't be faked by someone who merely knows the address. Once they've signed, the wallet shows as Verified on your roster. Signing costs nothing and moves no money.",
+    },
+    {
+        q: "What if a wallet hasn't been verified yet?",
+        a: "You can still pay it — it's a badge, not a barrier. But an unverified address only means it's correctly formed, not that anyone has proved it's theirs. Verified means the freelancer signed for that exact address, so if it's ever edited afterwards the badge drops and you'll see it before you pay.",
+    },
+    {
         q: "Do you support USDC or USDT?",
         a: "USDC today. USDT is on the roadmap — the payment contract already accepts any standard token, so it's a matter of adding and testing it rather than rebuilding anything. We started with USDC because it's the most widely held and most liquid stablecoin on Base.",
     },

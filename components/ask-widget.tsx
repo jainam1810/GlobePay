@@ -110,9 +110,6 @@ export default function AskWidget() {
                             </div>
                         </div>
                     </Resizable>
-                    <p className="mt-1.5 text-right text-[10px] text-[var(--text-faint)] select-none">
-                        Drag the top or left edge to resize
-                    </p>
                 </div>
             )}
 
