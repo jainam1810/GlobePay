@@ -8,11 +8,9 @@
 // being set, so there is no route of ours that could log it.
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Check, LifeBuoy, LogOut, Mail, KeyRound, ExternalLink } from "lucide-react";
+import { Check, LifeBuoy, Mail, KeyRound, ExternalLink } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { Button } from "@/components/ui/kit";
-import Confirm from "@/components/confirm";
 
 /* ── shared shell ───────────────────────────────────────────────────────── */
 
@@ -66,39 +64,96 @@ export type Msg = { kind: "ok" | "err"; text: string } | null;
 
 /* ── email ──────────────────────────────────────────────────────────────── */
 
+/**
+ * Changing the sign-in address, in two steps with a code.
+ *
+ * A code rather than a link, because a link only proves someone clicked
+ * something in that inbox — often on a different device, sometimes a scanner
+ * that followed it automatically. Typing a code back into the session that
+ * asked for it proves the person changing the address is the person holding
+ * the new inbox, in the place the change is happening.
+ *
+ * Requires the Supabase "Change Email Address" template to contain
+ * {{ .Token }}; without it the mail carries a link and no code to type.
+ */
 export function EmailSection({ current }: { current: string | null }) {
     const [email, setEmail] = useState(current ?? "");
+    const [code, setCode] = useState("");
+    // The address a code was actually sent to — kept separately so editing the
+    // field afterwards can't verify a code against a different address.
+    const [pending, setPending] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     const [msg, setMsg] = useState<Msg>(null);
 
     const changed = email.trim().toLowerCase() !== (current ?? "").toLowerCase();
 
-    async function save(e: React.FormEvent) {
+    async function sendCode(e: React.FormEvent) {
         e.preventDefault();
+        const next = email.trim();
         setBusy(true); setMsg(null);
-        const { error } = await getSupabaseBrowser().auth.updateUser({ email: email.trim() });
+        const { error } = await getSupabaseBrowser().auth.updateUser({ email: next });
         setBusy(false);
-        setMsg(error
-            ? { kind: "err", text: "That address couldn't be used. Check it and try again." }
-            // Nothing has changed yet, and saying so matters: someone who
-            // assumes it has will try the new address at the next sign-in and
-            // be locked out of a payroll they were about to approve.
-            : { kind: "ok", text: `Check ${email.trim()} for a confirmation link. Your sign-in address changes only once you've clicked it.` });
+        if (error) return setMsg({ kind: "err", text: "That address couldn't be used. Check it and try again." });
+        setPending(next);
+        setMsg({ kind: "ok", text: `We've sent a 6-digit code to ${next}. Enter it below to finish the change.` });
+    }
+
+    async function verify(e: React.FormEvent) {
+        e.preventDefault();
+        if (!pending) return;
+        setBusy(true); setMsg(null);
+        const { error } = await getSupabaseBrowser().auth.verifyOtp({
+            email: pending,
+            token: code.trim(),
+            type: "email_change",
+        });
+        setBusy(false);
+        if (error) return setMsg({ kind: "err", text: "That code didn't work. Check it, or send a new one." });
+        setPending(null); setCode("");
+        setMsg({ kind: "ok", text: `Done — you'll sign in with ${pending} from now on.` });
+    }
+
+    function cancel() {
+        setPending(null); setCode(""); setMsg(null);
+        setEmail(current ?? "");
     }
 
     return (
         <Section
             icon={Mail}
             title="Email address"
-            description="The address you sign in with. Changing it needs confirming from the new address first."
+            description="The address you sign in with. We'll email a code to the new address to confirm it's yours."
         >
-            <form onSubmit={save} className="max-w-sm space-y-3">
-                <Field label="Sign-in email">
-                    <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} />
-                </Field>
-                <Button type="submit" size="sm" loading={busy} disabled={!changed}>Update email</Button>
-                <Note state={msg} />
-            </form>
+            {pending ? (
+                <form onSubmit={verify} className="max-w-sm space-y-3">
+                    <Field label={`Code sent to ${pending}`} hint="Six digits. It expires shortly — send a new one if it does.">
+                        <input
+                            value={code}
+                            onChange={(e) => setCode(e.target.value)}
+                            // One-time-code autocomplete lets a phone offer the
+                            // code from the notification instead of retyping it.
+                            autoComplete="one-time-code"
+                            inputMode="numeric"
+                            required
+                            placeholder="000000"
+                            className={`${inputCls} font-mono tracking-[0.3em]`}
+                        />
+                    </Field>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button type="submit" size="sm" loading={busy} disabled={code.trim().length < 6}>Confirm change</Button>
+                        <Button type="button" size="sm" variant="ghost" onClick={cancel}>Cancel</Button>
+                    </div>
+                    <Note state={msg} />
+                </form>
+            ) : (
+                <form onSubmit={sendCode} className="max-w-sm space-y-3">
+                    <Field label="Sign-in email">
+                        <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} />
+                    </Field>
+                    <Button type="submit" size="sm" loading={busy} disabled={!changed}>Send confirmation code</Button>
+                    <Note state={msg} />
+                </form>
+            )}
         </Section>
     );
 }
@@ -160,39 +215,6 @@ export function PasswordSection({ email }: { email: string | null }) {
                 <Button type="submit" size="sm" loading={busy} disabled={!current || !next || !confirm}>Change password</Button>
                 <Note state={msg} />
             </form>
-        </Section>
-    );
-}
-
-/* ── sessions ───────────────────────────────────────────────────────────── */
-
-export function SessionsSection() {
-    const router = useRouter();
-    const [ask, setAsk] = useState(false);
-
-    async function signOutEverywhere() {
-        // 'global' revokes every refresh token for the user, this browser
-        // included, which is the honest behaviour for "everywhere".
-        await getSupabaseBrowser().auth.signOut({ scope: "global" });
-        router.replace("/login");
-    }
-
-    return (
-        <Section
-            icon={LogOut}
-            title="Signed-in devices"
-            description="Signed in somewhere you shouldn't be — an old laptop, a shared machine? End every session at once."
-        >
-            <Button size="sm" variant="ghost" onClick={() => setAsk(true)}>Sign out everywhere</Button>
-            <Confirm
-                open={ask}
-                onOpenChange={setAsk}
-                title="Sign out on every device?"
-                confirmLabel="Sign out everywhere"
-                danger
-                onConfirm={signOutEverywhere}
-                body="Every browser and device signed in to this account will be signed out, including this one. Your payments and records aren't affected."
-            />
         </Section>
     );
 }

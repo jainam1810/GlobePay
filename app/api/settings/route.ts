@@ -13,6 +13,7 @@ import { isAddress } from "viem";
 import { getSupabase } from "@/lib/supabase";
 import { getSessionInfo } from "@/lib/auth";
 import { COMPANY_COUNTRIES } from "@/lib/contractor-types";
+import { notifyWalletChanged } from "@/lib/notify";
 
 const FIELDS = "id, company_name, home_country, contact_email, wallet_address";
 
@@ -76,9 +77,33 @@ export async function PATCH(req: Request) {
             return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
         }
 
+        // Read before writing, so the notice below can say what it changed from.
+        const { data: before } = await getSupabase()
+            .from("clients").select(FIELDS).eq("id", s.clientId).single();
+
         const { data, error } = await getSupabase()
             .from("clients").update(patch).eq("id", s.clientId).select(FIELDS).single();
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+        // Changing the payout wallet changes who can approve payroll, so it is
+        // worth an email even when it was the account holder who did it — that
+        // is the only way they'd learn if it wasn't. Fire and forget: the change
+        // is already saved, and a mail outage must not fail the request.
+        const prev = before?.wallet_address ?? null;
+        const next = data?.wallet_address ?? null;
+        if ("wallet_address" in patch && prev?.toLowerCase() !== next?.toLowerCase()) {
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
+            void notifyWalletChanged({
+                // The notification address if they set one, else the address
+                // they sign in with — this notice is too important to drop.
+                to: data?.contact_email || s.email,
+                companyName: data?.company_name ?? "your company",
+                previous: prev,
+                next,
+                appUrl,
+            }).then((r) => console.log(`[settings] wallet change notice: ${r.detail}`));
+        }
+
         return NextResponse.json({ client: data });
     } catch (e) {
         return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 500 });

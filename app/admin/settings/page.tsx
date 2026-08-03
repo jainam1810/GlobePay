@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSessionInfo } from "@/lib/auth";
-import { EmailSection, PasswordSection, SessionsSection, HelpSection } from "@/components/settings-account";
+import { EmailSection, PasswordSection, HelpSection } from "@/components/settings-account";
 import pkg from "@/package.json";
 
 // Operators get the account half only. There is no company profile or payout
@@ -22,7 +22,6 @@ export default async function AdminSettingsPage() {
             <div className="space-y-4">
                 <EmailSection current={session.email} />
                 <PasswordSection email={session.email} />
-                <SessionsSection />
                 <HelpSection version={pkg.version} messagesHref="/admin/messages" />
             </div>
         </div>

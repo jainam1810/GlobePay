@@ -6,9 +6,9 @@
 // company's payroll runs, and the portal refuses to sign with anything else.
 // Changing it therefore changes who can pay, which is why it is confirmed
 // rather than saved as you type.
-import { useState } from "react";
-import { useAccount } from "wagmi";
-import { Building2, Check, Copy, Wallet } from "lucide-react";
+import { useCallback, useState } from "react";
+import { useAccount, useDisconnect } from "wagmi";
+import { Building2, Check, Copy, TriangleAlert, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/kit";
 import { Select, toOptions } from "@/components/ui/select";
 import { COMPANY_COUNTRIES } from "@/lib/contractor-types";
@@ -104,15 +104,42 @@ export function CompanySection({ initial }: { initial: ClientSettings }) {
 
 export function WalletSection({ initial }: { initial: ClientSettings }) {
     const { address, isConnected } = useAccount();
+    const { disconnect } = useDisconnect();
     const [onFile, setOnFile] = useState(initial.wallet_address);
     const [ask, setAsk] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [busy, setBusy] = useState(false);
     const [msg, setMsg] = useState<Msg>(null);
+    // Set when the user asks to change wallets: it hides the current one and
+    // shows the picker, so "change" is a decision rather than a side effect of
+    // whatever their extension happened to be on.
+    const [changing, setChanging] = useState(false);
 
     const matches = same(address, onFile);
-    // Only offer the swap when there is a different wallet actually connected —
-    // a button that would save the address already saved is just noise.
-    const canAdopt = isConnected && !!address && !matches;
+    const otherConnected = isConnected && !!address && !!onFile && !matches;
+
+    const save = useCallback(async (next: string) => {
+        setBusy(true); setMsg(null);
+        try {
+            const c = await patch({ wallet_address: next });
+            setOnFile(c.wallet_address);
+            setChanging(false);
+            setMsg({ kind: "ok", text: "Saved. This wallet approves your payroll from now on, and we've emailed you about the change." });
+        } catch (err) {
+            setMsg({ kind: "err", text: err instanceof Error ? err.message : "That didn't save." });
+        } finally {
+            setBusy(false);
+        }
+    }, []);
+
+    // Connecting *is* how you set your payout wallet the first time. Making
+    // someone connect and then press Save would be two steps for one decision,
+    // and leaves an account with a connected wallet and nothing on file — the
+    // state where payroll silently cannot be approved.
+    const onConnected = useCallback(() => {
+        if (!address) return;
+        if (!onFile || changing) void save(address);
+    }, [address, onFile, changing, save]);
 
     function copy() {
         if (!onFile) return;
@@ -122,57 +149,86 @@ export function WalletSection({ initial }: { initial: ClientSettings }) {
         });
     }
 
-    async function adopt() {
+    function startChange() {
         setMsg(null);
-        try {
-            const c = await patch({ wallet_address: address });
-            setOnFile(c.wallet_address);
-            setMsg({ kind: "ok", text: "Saved. This wallet now approves your payroll." });
-        } catch (err) {
-            setMsg({ kind: "err", text: err instanceof Error ? err.message : "That didn't save." });
-        }
+        setChanging(true);
+        // Drop the current connection so the wallet is free to offer its picker
+        // again; staying connected would just re-announce the same account.
+        if (isConnected) disconnect();
     }
+
+    const showPicker = !onFile || changing;
 
     return (
         <Section
             icon={Wallet}
             title="Payout wallet"
-            description="The one wallet allowed to approve your payroll. GlobePay never holds it or its keys — it only checks that the wallet approving a run is this one."
+            description="The wallet your payroll is approved from. It stays yours until you change it here — GlobePay never holds it or its keys."
         >
-            <div className="max-w-md space-y-4">
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3.5">
-                    <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">On file</div>
-                    {onFile ? (
-                        <div className="mt-1.5 flex items-center gap-2">
-                            <span className="font-mono text-[13px]">{truncate(onFile)}</span>
-                            <button onClick={copy} title="Copy wallet address" className="text-[var(--text-faint)] transition hover:text-[var(--text)]">
+            <div className="max-w-md space-y-3">
+                {onFile && !changing && (
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-[15px]">{truncate(onFile)}</span>
+                            <button onClick={copy} title="Copy wallet address"
+                                className="cursor-pointer text-[var(--text-faint)] transition hover:text-[var(--text)]">
                                 {copied ? <Check size={13} className="text-[var(--accent)]" /> : <Copy size={13} />}
                             </button>
                         </div>
-                    ) : (
-                        <div className="mt-1.5 text-[13px] text-[var(--warn)]">No wallet yet — payroll can&apos;t be approved until one is set.</div>
-                    )}
-                </div>
-
-                <div className="rounded-xl border border-[var(--border)] p-3.5">
-                    <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Connected now</div>
-                    {isConnected && address ? (
-                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                            <span className="font-mono text-[13px]">{truncate(address)}</span>
-                            {matches
-                                ? <span className="pill text-[11px]"><Check size={11} className="text-[var(--accent)]" /> Matches</span>
-                                : <span className="pill text-[11px] text-[var(--warn)]">Different wallet</span>}
+                        {/* Connected is about this browser only. The wallet is on
+                            file either way, so the wording never suggests it has
+                            been lost — only that nothing can be signed right now. */}
+                        <div className="mt-2 flex items-center gap-1.5 text-[12px]">
+                            <span className={`h-1.5 w-1.5 rounded-full ${matches ? "bg-[var(--accent)]" : "bg-[var(--text-faint)]"}`} />
+                            <span className="text-[var(--text-dim)]">
+                                {matches ? "Connected in this browser" : "Not connected in this browser"}
+                            </span>
                         </div>
-                    ) : (
-                        <div className="mt-2.5">
-                            <ConnectButton />
-                        </div>
-                    )}
-                </div>
-
-                {canAdopt && (
-                    <Button size="sm" onClick={() => setAsk(true)}>Use the connected wallet</Button>
+                    </div>
                 )}
+
+                {/* Amber, not the accent: .notice is blue and at this size reads
+                    like a run of selected text rather than a warning. */}
+                {otherConnected && (
+                    <div className="flex items-start gap-2 rounded-xl border border-[var(--warn-line)] bg-[var(--warn-soft)] p-3 text-[12px] leading-relaxed text-[var(--text-dim)]">
+                        <TriangleAlert size={14} className="mt-0.5 shrink-0 text-[var(--warn)]" />
+                        <span>
+                            A different wallet — <span className="font-mono text-[var(--text)]">{truncate(address!)}</span> — is
+                            connected right now. Payroll can only be approved from your payout wallet above.
+                        </span>
+                    </div>
+                )}
+
+                {showPicker ? (
+                    <div className="space-y-2.5">
+                        <p className="text-[12px] text-[var(--text-dim)]">
+                            {changing
+                                ? "Connect the wallet you want to pay from. It replaces the one above once connected."
+                                : "Connect the wallet you'll pay from. It becomes your payout wallet and stays until you change it here."}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <ConnectButton label={changing ? "Connect a wallet" : "Connect wallet"} onConnected={onConnected} />
+                            {changing && (
+                                <Button size="sm" variant="ghost" onClick={() => { setChanging(false); setMsg(null); }}>
+                                    Cancel
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button size="sm" variant="subtle" onClick={startChange} loading={busy}>Change wallet</Button>
+                        {otherConnected && (
+                            <Button size="sm" variant="ghost" onClick={() => setAsk(true)}>
+                                Use {truncate(address!)} instead
+                            </Button>
+                        )}
+                        {!isConnected && (
+                            <ConnectButton label="Reconnect" onConnected={onConnected} />
+                        )}
+                    </div>
+                )}
+
                 <Note state={msg} />
             </div>
 
@@ -181,14 +237,14 @@ export function WalletSection({ initial }: { initial: ClientSettings }) {
                 onOpenChange={setAsk}
                 title="Change your payout wallet?"
                 confirmLabel="Use this wallet"
-                onConfirm={adopt}
+                onConfirm={() => address && save(address)}
                 body={
                     <>
                         Payroll will be approved from{" "}
                         <span className="font-mono text-[var(--text)]">{address ? truncate(address) : ""}</span> from now on
                         {onFile && <> instead of <span className="font-mono text-[var(--text)]">{truncate(onFile)}</span></>}.
                         <span className="mt-2 block">
-                            Nothing already paid changes, and no money moves now. If this isn&apos;t a wallet you control, you won&apos;t be able to approve anything.
+                            Nothing already paid changes and no money moves now. We&apos;ll email you to confirm the change.
                         </span>
                     </>
                 }

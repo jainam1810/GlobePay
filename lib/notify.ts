@@ -45,3 +45,56 @@ export async function notifyPayrollPrepared(client: DbClient, run: PayrollRun, a
         return { sent: false, detail: `email failed — ${e instanceof Error ? e.message : "unknown error"}` };
     }
 }
+
+/**
+ * Tell the client their payout wallet changed.
+ *
+ * This one is a security notice, not a convenience. Changing the payout wallet
+ * changes which wallet can approve payroll, so if it was not the account holder
+ * who did it, this email is how they find out — which means it has to go out
+ * even when the change was legitimate, and has to name both addresses in full
+ * so the reader can check them rather than trust a truncation.
+ */
+export async function notifyWalletChanged(opts: {
+    to: string | null;
+    companyName: string;
+    previous: string | null;
+    next: string | null;
+    appUrl: string;
+}): Promise<NotifyResult> {
+    const key = process.env.RESEND_API_KEY;
+    if (!key) return { sent: false, detail: "email skipped — RESEND_API_KEY not set" };
+    if (!opts.to) return { sent: false, detail: "email skipped — no contact email on file" };
+
+    const mono = "font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;word-break:break-all";
+    try {
+        const res = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+                from: process.env.NOTIFY_FROM || "GlobePay <onboarding@resend.dev>",
+                to: opts.to,
+                subject: "Your GlobePay payout wallet was changed",
+                html: `
+                    <div style="font-family:sans-serif;max-width:520px">
+                        <h2 style="margin-bottom:4px">Your payout wallet was changed</h2>
+                        <p style="color:#555">The wallet that approves payroll for ${opts.companyName} has been updated.</p>
+                        <table style="border-collapse:collapse;margin:16px 0">
+                            <tr><td style="padding:6px 16px 6px 0;color:#888;vertical-align:top">Now</td><td style="${mono}"><b>${opts.next ?? "none"}</b></td></tr>
+                            <tr><td style="padding:6px 16px 6px 0;color:#888;vertical-align:top">Before</td><td style="${mono};color:#888">${opts.previous ?? "none"}</td></tr>
+                        </table>
+                        <p style="color:#555">No money has moved, and nothing already paid is affected.</p>
+                        <p style="color:#b00;font-size:13px"><b>If this wasn't you</b>, sign in and set it back at
+                            <a href="${opts.appUrl}/portal/settings">${opts.appUrl}/portal/settings</a>, then change your password.</p>
+                    </div>`,
+            }),
+        });
+        if (!res.ok) {
+            const err = await res.text();
+            return { sent: false, detail: `email failed — ${err.slice(0, 120)}` };
+        }
+        return { sent: true, detail: `email sent to ${opts.to}` };
+    } catch (e) {
+        return { sent: false, detail: `email failed — ${e instanceof Error ? e.message : "unknown error"}` };
+    }
+}

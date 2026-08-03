@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionInfo } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase";
-import { EmailSection, PasswordSection, SessionsSection, HelpSection } from "@/components/settings-account";
+import { EmailSection, PasswordSection, HelpSection } from "@/components/settings-account";
 import { CompanySection, WalletSection, type ClientSettings } from "@/components/settings-company";
 import pkg from "@/package.json";
 
@@ -45,7 +45,6 @@ export default async function PortalSettingsPage() {
                 <WalletSection initial={client} />
                 <EmailSection current={session.email} />
                 <PasswordSection email={session.email} />
-                <SessionsSection />
                 <HelpSection version={pkg.version} />
             </div>
         </div>

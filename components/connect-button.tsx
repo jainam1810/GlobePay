@@ -12,7 +12,7 @@ const truncate = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 // Anything injected names itself — see pickable() below.
 const LABELS: Record<string, { name: string; hint: string }> = {
     safe: { name: "Safe", hint: "Your company multisig" },
-    walletConnect: { name: "Safe / mobile wallet", hint: "Scan a QR or approve in your Safe app" },
+    walletConnect: { name: "Safe wallet", hint: "Scan a QR or approve in your Safe app" },
 };
 
 /**
@@ -49,7 +49,17 @@ function pickable(connectors: readonly Connector[]) {
         });
 }
 
-export default function ConnectButton() {
+export default function ConnectButton({ label = "Connect Wallet", onConnected }: {
+    /**
+     * What the button says when nothing is connected. "Connect Wallet" is right
+     * in the header; in settings, where a wallet is already on file, it needs to
+     * say Reconnect instead — offering to "connect a wallet" to someone who has
+     * one reads as though theirs had been forgotten.
+     */
+    label?: string;
+    /** Fired once a connection lands, so the caller can save the address. */
+    onConnected?: () => void;
+} = {}) {
     const { address, isConnected, chainId } = useAccount();
     const { connect, connectors, isPending } = useConnect();
     const { switchChain } = useSwitchChain();
@@ -67,6 +77,16 @@ export default function ConnectButton() {
         return () => document.removeEventListener("mousedown", onDown);
     }, [open]);
 
+    // Announce the address once per connection, not once per render — the
+    // callback saves to the server, and a re-render is not a new connection.
+    const announced = useRef<string | null>(null);
+    useEffect(() => {
+        if (!isConnected || !address) { announced.current = null; return; }
+        if (announced.current === address) return;
+        announced.current = address;
+        onConnected?.();
+    }, [isConnected, address, onConnected]);
+
     if (!isConnected) {
         // Only one way in — don't make them pick from a list of one.
         if (usable.length <= 1) {
@@ -76,7 +96,7 @@ export default function ConnectButton() {
                     disabled={isPending || usable.length === 0}
                     className="rounded-full bg-(--accent) text-[var(--accent-ink)] px-4 py-2 text-sm font-semibold hover:brightness-105 transition disabled:opacity-60"
                 >
-                    {isPending ? "Connecting…" : "Connect Wallet"}
+                    {isPending ? "Connecting…" : label}
                 </button>
             );
         }
@@ -87,7 +107,7 @@ export default function ConnectButton() {
                     disabled={isPending}
                     className="rounded-full bg-(--accent) text-[var(--accent-ink)] px-4 py-2 text-sm font-semibold hover:brightness-105 transition disabled:opacity-60"
                 >
-                    {isPending ? "Connecting…" : "Connect Wallet"}
+                    {isPending ? "Connecting…" : label}
                 </button>
                 {/* w-72, not w-64: adding a 24px logo pushed "approve in your
                     Safe app" into an ellipsis at the narrower width. */}
