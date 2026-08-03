@@ -35,12 +35,26 @@ export const SUPPORTED_COUNTRIES = ["Nigeria", "Argentina", "Philippines"] as co
 export const truncate = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 export const formatUSD = (n: number) => `$${n.toLocaleString("en-US")}`;
 
-const FLAGS: Record<string, string> = {
-    Nigeria: "🇳🇬", Argentina: "🇦🇷", Philippines: "🇵🇭",
-    "United Kingdom": "🇬🇧", "United States": "🇺🇸",
-    India: "🇮🇳", Germany: "🇩🇪", Singapore: "🇸🇬", Brazil: "🇧🇷",
+/**
+ * Country name → ISO 3166-1 alpha-2.
+ *
+ * Emoji flags used to live here and they were a mistake: Windows ships no flag
+ * glyphs at all — Segoe UI Emoji deliberately omits the regional-indicator
+ * pairs — so Chrome and Edge on Windows render 🇳🇬 as the bare letters "NG".
+ * Firefox looks right only because Mozilla ships its own. Most business users
+ * are on Chrome or Edge on Windows, so most users were seeing letters, and the
+ * PDF export was worse again because no PDF font has the glyphs either.
+ *
+ * These codes drive a real SVG flag instead — see components/flag.tsx.
+ */
+export const COUNTRY_CODE: Record<string, string> = {
+    Nigeria: "NG", Argentina: "AR", Philippines: "PH",
+    "United Kingdom": "GB", "United States": "US",
+    India: "IN", Germany: "DE", Singapore: "SG", Brazil: "BR",
 };
-export const flagFor = (c: string) => FLAGS[c] ?? "🌐";
+
+/** The ISO code for a country name, or null when we don't have a flag for it. */
+export const codeFor = (c: string): string | null => COUNTRY_CODE[c] ?? null;
 
 export const COMPANY_COUNTRIES = [
     "United Kingdom", "United States", "Nigeria", "Argentina",

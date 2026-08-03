@@ -142,7 +142,7 @@ export default function LoginPage() {
                 </div>
 
                 <p className="text-center text-[11px] text-[var(--text-faint)] lg:text-left">
-                    Base Sepolia testnet · no real funds move
+                    Ethereum Layer 2 &mdash; Base
                 </p>
             </div>
 

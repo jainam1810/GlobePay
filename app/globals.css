@@ -791,6 +791,15 @@ body {
   }
 }
 
+/* The full-length wallet and transaction hash exist in the markup for every
+   payment, but only paper shows them: on screen the columns and the drill-down
+   already carry them, with a copy button, which beats a 66-character string
+   wrapped across a row. Kept in the DOM rather than rendered conditionally so
+   the browser's own print preview and "save as PDF" both get the real values. */
+.audit-ids {
+  display: none;
+}
+
 /* ---------------------------------------------------------------------------
    Print — the audit pack.
 
@@ -862,7 +871,7 @@ body {
   .audit-doc table {
     width: 100% !important;
     min-width: 0 !important;
-    font-size: 10pt;
+    font-size: 9pt;
   }
 
   .audit-doc .overflow-x-auto {
@@ -888,6 +897,17 @@ body {
     display: none !important;
   }
 
+  /* Page furniture. Without a repeating header, sheet 2 onward is anonymous
+     columns of money — which is exactly the document nobody can rely on. */
+  @page {
+    margin: 16mm 14mm 18mm;
+  }
+
+  thead.audit-thead th {
+    border-bottom: 1.5px solid rgba(0, 0, 0, 0.35) !important;
+    font-size: 8pt;
+  }
+
   /* Paper is wider than a laptop viewport, so bring back the columns the screen
      folds away — Tailwind's responsive `hidden` is keyed to viewport width and
      doesn't know about print. */
@@ -895,30 +915,110 @@ body {
     display: table-cell !important;
   }
 
-  /* …which makes the wallet a real column, so the copy tucked under the name is
-     now a duplicate. Drop it rather than print the address twice. */
-  .audit-wallet {
+  /* The copies tucked under the name are for narrow screens. On paper every
+     column prints, so they would repeat the same value twice. */
+  .audit-inline {
     display: none !important;
   }
 
-  /* Addresses and hashes are the one thing that must be transcribable, so let
-     them wrap rather than truncate. */
+  /* The two identifier columns are dropped entirely: shortened to fit, they
+     are unusable, and full length they will not fit beside anything else.
+     They print on their own line instead — see .audit-ids below.
+
+     Scoped through `.audit-doc table` because the rule above that restores
+     folded-away columns is written at that depth, and a bare .audit-col-id
+     loses to it on specificity even with !important. */
+  .audit-doc table .audit-col-id {
+    display: none !important;
+  }
+
+  /* An emoji flag is a pair of regional-indicator codepoints. PDF fonts
+     generally have no glyph for the pair, so they fall through to the letters
+     themselves and the country reads "PH Philippines". The name alone is
+     unambiguous on paper; the flag stays on screen, where it renders. */
+  .audit-flag {
+    display: none !important;
+  }
+
+  /* The page is a document, not a screen: no ambient wash behind it. */
+  body::before,
+  body::after {
+    display: none !important;
+  }
+
   .audit-doc table {
     table-layout: auto;
   }
 
+  /* Release the pixel column widths set for the screen. They add up to 714px,
+     and A4 less its margins is about 688 — so the last column printed off the
+     edge of the sheet. Auto layout then fits the columns to whatever paper
+     it's actually given, which is the point of printing at all. */
+  .audit-doc table th,
+  .audit-doc table td {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
   .audit-doc td,
   .audit-doc th {
-    padding: 6pt 5pt;
+    padding: 5pt 5pt;
     vertical-align: top;
   }
 
+  /* Let the shortened columns breathe, but break *words* only where a word is
+     an unbroken 66-character hash. The old rule applied break-all to every
+     truncated cell, which is why names printed as "Jainam Vari a" and
+     "Sofia Ramir ez — Produc t & UX Desi gn". Names wrap on spaces now. */
   .audit-doc .truncate,
   .audit-doc .whitespace-nowrap {
     overflow: visible !important;
     text-overflow: clip !important;
     white-space: normal !important;
+    overflow-wrap: break-word;
+  }
+
+  .audit-doc .audit-name {
+    /* Never mid-word, and never orphan a surname onto its own line. */
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+
+  /* ── the identifier line ──────────────────────────────────────────────── */
+
+  .audit-ids {
+    display: table-row !important;
+  }
+
+  .audit-ids-cell {
+    padding: 0 5pt 7pt !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  }
+
+  .audit-id {
+    display: block;
+    font-size: 7.5pt;
+    line-height: 1.5;
+  }
+
+  .audit-id-label {
+    display: inline-block;
+    min-width: 46pt;
+    color: #6b7280;
+  }
+
+  /* The only thing on the page allowed to break mid-token, because a hash has
+     no spaces and must survive at full length. */
+  .audit-mono {
+    font-family: var(--font-mono);
+    color: #101319;
     word-break: break-all;
+  }
+
+  /* A payment and its identifiers are one record; never split them. */
+  .audit-row {
+    break-after: avoid;
   }
 
   /* Zebra striping does the work the hover state does on screen: it stops the

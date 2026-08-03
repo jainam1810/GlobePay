@@ -1,7 +1,7 @@
 // Operator overview: everything, structured by client.
 import Link from "next/link";
 import { getSupabase } from "@/lib/supabase";
-import { flagFor } from "@/lib/contractor-types";
+import Flag from "@/components/flag";
 import type { DbClient } from "@/lib/clients";
 
 export const dynamic = "force-dynamic";
@@ -49,7 +49,7 @@ export default async function AdminOverview() {
                     {perClient.map(({ client, freelancers, payrolls, paid, pending }) => (
                         <Link key={client.id} href={`/admin/clients/${client.id}`}
                             className="flex items-center gap-4 px-5 md:px-6 py-4 hover:bg-[var(--surface-2)] transition-colors">
-                            <span className="text-xl">{flagFor(client.home_country)}</span>
+                            <Flag country={client.home_country} size={20} />
                             <div className="min-w-0 flex-1">
                                 <div className="font-medium truncate">{client.company_name}</div>
                                 <div className="text-xs text-[var(--text-dim)]">{client.home_country}</div>

@@ -5,7 +5,7 @@ import { Home, History, FileText, MessagesSquare, BarChart3 } from "lucide-react
 import ConnectButton from "@/components/connect-button";
 import AskWidget from "@/components/ask-widget";
 import SignOutButton from "@/components/sign-out-button";
-import { flagFor } from "@/lib/contractor-types";
+import Flag from "@/components/flag";
 
 const nav = [
     { href: "/portal", label: "Home", icon: Home },
@@ -31,7 +31,7 @@ export default function PortalShell({ children, companyName, homeCountry, email 
                         <span className="font-display text-xl font-semibold tracking-tight">GlobePay</span>
                     </Link>
                     <div className="px-2 mb-7">
-                        <span className="pill">{flagFor(homeCountry)} {companyName}</span>
+                        <span className="pill"><Flag country={homeCountry} /> {companyName}</span>
                     </div>
                     <nav className="flex flex-col gap-1">
                         {nav.map((item) => (

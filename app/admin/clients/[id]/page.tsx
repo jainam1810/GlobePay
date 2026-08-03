@@ -2,7 +2,8 @@
 import { useEffect, useMemo, useRef, useState, use } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Plus, AlertCircle, Send, Users, CheckCircle2, XCircle, Clock, ExternalLink, Sparkles, Pencil, Trash2, Copy, Check, ShieldQuestion } from "lucide-react";
-import { SUPPORTED_COUNTRIES, COMPANY_COUNTRIES, flagFor, avatarFor, truncate, formatUSD, type DbContractor } from "@/lib/contractor-types";
+import { SUPPORTED_COUNTRIES, COMPANY_COUNTRIES, avatarFor, truncate, formatUSD, type DbContractor } from "@/lib/contractor-types";
+import Flag from "@/components/flag";
 import type { DbClient, PayrollRun } from "@/lib/clients";
 import ImportFreelancers from "@/components/import-freelancers";
 import InvoiceIntake, { type InvoiceMeta } from "@/components/invoice-intake";
@@ -115,7 +116,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 <ArrowLeft size={13} /> All clients
             </Link>
             <div className="fade-up flex items-center gap-3 mt-3 flex-wrap">
-                <span className="text-2xl">{client ? flagFor(client.home_country) : "🌐"}</span>
+                <Flag country={client?.home_country} size={26} />
                 <h1 className="font-display text-3xl font-semibold tracking-tight">{client?.company_name ?? "…"}</h1>
                 {client && (
                     <button onClick={() => setEditClient(!editClient)}
@@ -230,7 +231,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                             <div className="font-medium truncate text-sm">{c.name}</div>
                                             <div className="text-xs text-[var(--text-dim)] truncate">{c.role || "—"}</div>
                                         </div>
-                                        <div className="hidden sm:flex items-center gap-1.5 text-xs text-[var(--text-dim)] w-24"><span>{flagFor(c.country)}</span>{c.country}</div>
+                                        <div className="hidden sm:flex items-center gap-1.5 text-xs text-[var(--text-dim)] w-24"><Flag country={c.country} />{c.country}</div>
                                         <div className="hidden lg:flex items-center gap-1.5 w-48">
                                             <span className="font-mono text-[10px] text-[var(--text-faint)]">{truncate(c.wallet)}</span>
                                             <CopyButton value={c.wallet} title={`Copy ${c.name}'s wallet address`} />
