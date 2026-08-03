@@ -6,10 +6,25 @@ import type { DbClient, PayrollRun } from "@/lib/clients";
 
 export type NotifyResult = { sent: boolean; detail: string };
 
+/**
+ * Where every notification actually goes.
+ *
+ * One address for the whole platform, not the address on the client record.
+ * Resend's shared `onboarding@resend.dev` sender is only permitted to deliver
+ * to the account owner — anything else comes back 403, "You can only send
+ * testing emails to your own email address" — so notices addressed to a client
+ * were being written, sent, and rejected without ever arriving.
+ *
+ * Sending them all here means they are delivered and can be read, which for a
+ * demo is the point. Set NOTIFY_TO to change it, and once a domain is verified
+ * at resend.com/domains this can go back to the per-client address along with a
+ * NOTIFY_FROM on that domain.
+ */
+const NOTIFY_TO = process.env.NOTIFY_TO || "jainamvaria1010@gmail.com";
+
 export async function notifyPayrollPrepared(client: DbClient, run: PayrollRun, appUrl: string): Promise<NotifyResult> {
     const key = process.env.RESEND_API_KEY;
     if (!key) return { sent: false, detail: "email skipped — RESEND_API_KEY not set" };
-    if (!client.contact_email) return { sent: false, detail: "email skipped — client has no contact email" };
 
     const names = run.line_items.map((li) => li.name).join(", ");
     const total = Number(run.total_amount).toLocaleString("en-US");
@@ -21,7 +36,7 @@ export async function notifyPayrollPrepared(client: DbClient, run: PayrollRun, a
             headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
             body: JSON.stringify({
                 from: process.env.NOTIFY_FROM || "GlobePay <onboarding@resend.dev>",
-                to: client.contact_email,
+                to: NOTIFY_TO,
                 subject: `Payroll ready for your confirmation — $${total} · ${run.line_items.length} freelancer${run.line_items.length === 1 ? "" : "s"}`,
                 html: `
                     <div style="font-family:sans-serif;max-width:520px">
@@ -40,7 +55,7 @@ export async function notifyPayrollPrepared(client: DbClient, run: PayrollRun, a
             const err = await res.text();
             return { sent: false, detail: `email failed — ${err.slice(0, 120)}` };
         }
-        return { sent: true, detail: `email sent to ${client.contact_email}` };
+        return { sent: true, detail: `email sent to ${NOTIFY_TO}` };
     } catch (e) {
         return { sent: false, detail: `email failed — ${e instanceof Error ? e.message : "unknown error"}` };
     }
@@ -56,7 +71,6 @@ export async function notifyPayrollPrepared(client: DbClient, run: PayrollRun, a
  * so the reader can check them rather than trust a truncation.
  */
 export async function notifyWalletChanged(opts: {
-    to: string | null;
     companyName: string;
     previous: string | null;
     next: string | null;
@@ -64,7 +78,6 @@ export async function notifyWalletChanged(opts: {
 }): Promise<NotifyResult> {
     const key = process.env.RESEND_API_KEY;
     if (!key) return { sent: false, detail: "email skipped — RESEND_API_KEY not set" };
-    if (!opts.to) return { sent: false, detail: "email skipped — no contact email on file" };
 
     const mono = "font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;word-break:break-all";
     try {
@@ -73,7 +86,7 @@ export async function notifyWalletChanged(opts: {
             headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
             body: JSON.stringify({
                 from: process.env.NOTIFY_FROM || "GlobePay <onboarding@resend.dev>",
-                to: opts.to,
+                to: NOTIFY_TO,
                 subject: "Your GlobePay payout wallet was changed",
                 html: `
                     <div style="font-family:sans-serif;max-width:520px">
@@ -93,7 +106,7 @@ export async function notifyWalletChanged(opts: {
             const err = await res.text();
             return { sent: false, detail: `email failed — ${err.slice(0, 120)}` };
         }
-        return { sent: true, detail: `email sent to ${opts.to}` };
+        return { sent: true, detail: `email sent to ${NOTIFY_TO}` };
     } catch (e) {
         return { sent: false, detail: `email failed — ${e instanceof Error ? e.message : "unknown error"}` };
     }
