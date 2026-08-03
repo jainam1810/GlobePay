@@ -53,7 +53,7 @@ export default function Confirm({
         <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
             <AlertDialog.Portal>
                 <AlertDialog.Overlay className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-[2px]" />
-                <AlertDialog.Content className="fixed z-[61] left-1/2 top-1/2 w-[min(calc(100vw-2rem),400px)] -translate-x-1/2 -translate-y-1/2 rounded-[var(--radius)] border border-[var(--border-strong)] bg-[var(--surface)] p-5 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)]">
+                <AlertDialog.Content className="glass-panel backdrop-blur-2xl backdrop-saturate-150 fixed z-[61] left-1/2 top-1/2 w-[min(calc(100vw-2rem),400px)] -translate-x-1/2 -translate-y-1/2 rounded-[var(--radius)] p-5 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)]">
                     <AlertDialog.Title className="text-[15px] font-medium">{title}</AlertDialog.Title>
                     <AlertDialog.Description asChild>
                         <div className="mt-2 text-[13px] leading-relaxed text-[var(--text-dim)]">{body}</div>

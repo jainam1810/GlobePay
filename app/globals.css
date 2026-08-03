@@ -197,6 +197,63 @@ body {
       linear-gradient(150deg, var(--accent) 0%, var(--accent-deep) 58%, #0F2C86 100%);
   }
 
+  /* ── frosted surfaces ──────────────────────────────────────────────────────
+     Glass is applied by the 2026 "hybrid" rule rather than as a theme: flat,
+     solid surfaces carry the product, and frosting is spent only on things that
+     genuinely float above content — chrome, sticky headers, dialogs, the
+     assistant widget.
+
+     It is deliberately NOT used on tables, ledger rows or anything holding a
+     figure. Dense data needs an opaque, predictable background; translucency
+     puts whatever happens to be scrolling underneath behind the number you are
+     trying to read, and the contrast ratio becomes a function of scroll
+     position. On a payroll screen that is not a trade worth making.
+
+     Three constraints are baked in below:
+       · never more than one blurred layer over another — stacked blurs are
+         where backdrop-filter starts costing frames on mid-range hardware
+       · a solid fallback for browsers without backdrop-filter, so text never
+         lands on near-transparency
+       · prefers-reduced-transparency is honoured (see the bottom of this file):
+         the OS-level setting exists precisely for people this effect hurts */
+     The blur itself is NOT declared here. Writing `backdrop-filter` by hand in
+     this file does not survive the build: the CSS optimiser rewrites it to
+     `-webkit-backdrop-filter` *only*, and Chromium ignores the prefixed alias —
+     verified by rendering both against a striped background, where the webkit
+     one stayed perfectly sharp. That failure is silent and it is the worst
+     possible one: translucent chrome with nothing blurred behind it.
+
+     So the blur comes from Tailwind's own `backdrop-blur-*` utilities at each
+     call site, which emit the unprefixed property and survive minification.
+     These classes own the tint, the border and the opaque fallback. */
+  .glass-panel {
+    /* The fallback is the important half: if the blur never applies, this stays
+       a legible opaque panel rather than washed-out text. */
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    border: 1px solid var(--border);
+  }
+
+  @supports (backdrop-filter: blur(1px)) {
+    .glass-panel {
+      background: color-mix(in srgb, var(--surface) 62%, transparent);
+      border-color: color-mix(in srgb, var(--border-strong) 70%, transparent);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+    }
+  }
+
+  /* Chrome: nav bars and sticky headers, where content passes underneath and
+     the frosting is doing real work — separating layers, not decorating. */
+  .glass-bar {
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    border-color: var(--border);
+  }
+
+  @supports (backdrop-filter: blur(1px)) {
+    .glass-bar {
+      background: color-mix(in srgb, var(--bg) 66%, transparent);
+    }
+  }
+
   /* Frosted, for the isometric cards and anything that overlaps a glow. */
   .glass {
     background: linear-gradient(150deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.03));
@@ -784,6 +841,35 @@ body {
   .anim-sheet-top,
   .anim-accordion {
     animation-duration: 1ms !important;
+  }
+}
+
+/* Someone has asked their OS to cut transparency — usually because layered,
+   see-through surfaces make text genuinely hard to read. Honour it properly:
+   drop the blur and go fully opaque, rather than merely reducing it. A weaker
+   frost is still a frost. */
+@media (prefers-reduced-transparency: reduce) {
+
+  /* Cancels the blur by emptying the variables Tailwind's backdrop-blur
+     utilities compose from, rather than by declaring `backdrop-filter: none`
+     — which this build would rewrite to the prefixed property and quietly
+     fail to apply, leaving the effect on for exactly the people who asked
+     for it to be off. */
+  .glass-panel,
+  .glass-bar,
+  .glass {
+    --tw-backdrop-blur: ;
+    --tw-backdrop-saturate: ;
+  }
+
+  .glass-panel,
+  .glass {
+    background: var(--surface) !important;
+    border-color: var(--border-strong) !important;
+  }
+
+  .glass-bar {
+    background: var(--bg) !important;
   }
 
   html {

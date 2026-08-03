@@ -165,7 +165,7 @@ function PaymentRow({ p, found = false }: { p: SavedPayment; found?: boolean }) 
     const named = p.recipients.filter((r) => r.name);
     const headline = named.length === p.recipient_count && named.length > 0 && p.recipient_count <= 3
         ? named.map((r) => r.name!.split(" ")[0]).join(", ")
-        : `${p.recipient_count} contractor${p.recipient_count === 1 ? "" : "s"}`;
+        : `${p.recipient_count} freelancer${p.recipient_count === 1 ? "" : "s"}`;
 
     // Prefer the real USD the payroll run recorded; fall back to what the
     // chain actually moved when no run is linked to this transaction.
