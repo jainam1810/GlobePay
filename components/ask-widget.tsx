@@ -84,7 +84,9 @@ export default function AskWidget() {
                             top: { cursor: "ns-resize" },
                             left: { cursor: "ew-resize" },
                         }}
-                        className="rounded-[var(--radius)] border border-[var(--border-strong)] bg-[var(--bg)] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.85)] overflow-hidden"
+                        // Genuinely floating over whatever page you're on, which is
+                        // exactly where frosting reads as depth rather than noise.
+                        className="glass-panel backdrop-blur-2xl backdrop-saturate-150 rounded-[var(--radius)] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.85)] overflow-hidden"
                     >
                         <div className="flex h-full flex-col">
                             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--border)] shrink-0">

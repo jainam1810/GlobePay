@@ -340,12 +340,34 @@ export function PaymentRun() {
                                     </div>
                                 </div>
 
-                                <Button className="mt-5 w-full">Send payment</Button>
+                                {/* This card is a picture of the confirm screen, not
+                                    the screen itself — so the button is inert and
+                                    marked as decoration. A control that looks live
+                                    and does nothing when clicked reads as broken
+                                    software, which is the last impression a payments
+                                    product wants. The real action is below. */}
+                                <div
+                                    aria-hidden
+                                    className="btn-pill btn-fill mt-5 w-full cursor-default select-none justify-center py-2.5 text-[14px] opacity-90"
+                                >
+                                    Send payment
+                                </div>
                                 <p className="mt-3 text-center text-[11px] text-[var(--text-faint)]">
                                     One signature · addresses verified before sending
                                 </p>
                             </div>
                         </div>
+                    </div>
+                </Reveal>
+
+                <Reveal index={4}>
+                    <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+                        <Button asChild size="lg">
+                            <Link href="/login">Try a payment run <ArrowUpRight size={16} /></Link>
+                        </Button>
+                        <span className="text-[12px] text-[var(--text-faint)]">
+                            Testnet — real signatures, no real money
+                        </span>
                     </div>
                 </Reveal>
             </div>
