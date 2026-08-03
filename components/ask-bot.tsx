@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ReactMarkdown from "react-markdown";
-import { Send, Loader2, Sparkles, AlertCircle, ChevronRight, ArrowUpRight, History, Plus, Trash2 } from "lucide-react";
+import { Send, Loader2, Sparkles, AlertCircle, ChevronRight, ArrowUpRight, FileText, History, Plus, Trash2 } from "lucide-react";
 import {
     listConversations, saveConversation, deleteConversation, clearConversations,
     titleFrom, dayLabel, RETENTION_HOURS, type Conversation,
@@ -147,9 +147,18 @@ function Evidence({ rows, truncated, scope, paymentsHref }: {
     // Deep link carrying the transactions this answer was built from. The
     // payments page lifts them to the top and marks them, so the row someone
     // clicked is the row they land on rather than one they have to hunt for.
+    //
+    // The payments page can only highlight by transaction hash, so a record
+    // without one has nothing to land on: it was saved as an invoice but never
+    // settled through a payroll run. Those rows are not links.
+    //
+    // The old code fell back to `txs.join(",")` for such a row, which was wrong
+    // twice over — it highlighted *every other* payment in the answer, and when
+    // the row was the only one, it produced `?highlight=` and silently did
+    // nothing. Nothing is exactly what the user saw.
     const txs = [...new Set(rows.map((r) => r.tx).filter(Boolean))] as string[];
     const linkTo = (tx?: string | null) =>
-        `${paymentsHref}?highlight=${encodeURIComponent(tx ? tx : txs.join(","))}`;
+        `${paymentsHref}?highlight=${encodeURIComponent(tx || txs.join(","))}`;
 
     return (
         <div className="mt-3 pt-3 border-t border-[var(--border)]">
@@ -170,23 +179,43 @@ function Evidence({ rows, truncated, scope, paymentsHref }: {
 
             {open && (
                 <div className="mt-2 overflow-hidden rounded-lg border border-[var(--border)]">
-                    {rows.map((r, i) => (
-                        <Link key={i} href={linkTo(r.tx)}
-                            title="Open this payment"
-                            className="flex items-baseline gap-2 px-2.5 py-1.5 border-b border-[var(--border)] last:border-0 bg-[var(--surface)] hover:bg-[var(--surface-2)] transition group">
-                            <span className="font-mono text-[11px] text-[var(--text-faint)] shrink-0 w-[74px]">{r.date}</span>
-                            <span className="min-w-0 flex-1">
-                                <span className="block text-[12px] truncate group-hover:text-[var(--accent)] transition">{r.name}</span>
-                                <span className="block text-[10px] text-[var(--text-faint)] truncate">
-                                    {r.country ?? "—"}{r.invoice ? ` · ${r.invoice}` : ""}
+                    {rows.map((r, i) => {
+                        const cell = (
+                            <>
+                                <span className="font-mono text-[11px] text-[var(--text-faint)] shrink-0 w-[74px]">{r.date}</span>
+                                <span className="min-w-0 flex-1">
+                                    <span className={`block text-[12px] truncate transition ${r.tx ? "group-hover:text-[var(--accent)]" : ""}`}>{r.name}</span>
+                                    <span className="block text-[10px] text-[var(--text-faint)] truncate">
+                                        {r.tx
+                                            ? <>{r.country ?? "—"}{r.invoice ? ` · ${r.invoice}` : ""}</>
+                                            // Says why it doesn't open, rather than
+                                            // looking clickable and doing nothing.
+                                            : <>{r.country ?? "—"} · invoice only, no payment recorded</>}
+                                    </span>
                                 </span>
-                            </span>
-                            <span className="font-mono text-[12px] shrink-0 tabular-nums">
-                                ${r.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
-                            <ArrowUpRight size={11} className="shrink-0 text-[var(--text-faint)] group-hover:text-[var(--accent)] transition" />
-                        </Link>
-                    ))}
+                                <span className="font-mono text-[12px] shrink-0 tabular-nums">
+                                    ${r.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                                {r.tx
+                                    ? <ArrowUpRight size={11} className="shrink-0 text-[var(--text-faint)] group-hover:text-[var(--accent)] transition" />
+                                    : <FileText size={11} className="shrink-0 text-[var(--text-faint)]" />}
+                            </>
+                        );
+
+                        const shell = "flex items-baseline gap-2 px-2.5 py-1.5 border-b border-[var(--border)] last:border-0 bg-[var(--surface)] transition group";
+
+                        return r.tx ? (
+                            <Link key={i} href={linkTo(r.tx)} title="Open this payment"
+                                className={`${shell} hover:bg-[var(--surface-2)]`}>
+                                {cell}
+                            </Link>
+                        ) : (
+                            <div key={i} title="This invoice has no on-chain payment to open"
+                                className={shell}>
+                                {cell}
+                            </div>
+                        );
+                    })}
                     {truncated && (
                         <div className="px-2.5 py-1.5 text-[10px] text-[var(--text-faint)] bg-[var(--surface)]">
                             Showing the 50 most recent — open the audit pack for the full list.
