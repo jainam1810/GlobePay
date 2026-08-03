@@ -261,6 +261,26 @@ function Evidence({ rows, truncated, scope, paymentsHref }: {
 
 // Starter questions come from the server, built from this client's own payments,
 // so nothing offered here can answer "no payments" — see /api/ask/suggestions.
+//
+// Fetched once per page and kept here, outside the component, for two reasons.
+// The panel only mounts when it is opened, so without a cache the request began
+// at the moment the user was looking at the empty state and the chips landed
+// half a second later, shoving the copy upward. And reopening it re-ran the
+// same request for the same four strings. AskWidget primes this on mount, so by
+// the time anyone clicks the answer is usually already here.
+const SUGGESTION_COUNT = 4;
+let suggestionCache: string[] | null = null;
+let suggestionInflight: Promise<string[]> | null = null;
+
+export function fetchSuggestions(): Promise<string[]> {
+    if (suggestionCache) return Promise.resolve(suggestionCache);
+    suggestionInflight ??= fetch("/api/ask/suggestions")
+        .then((r) => r.json())
+        .then((j) => (suggestionCache = j.suggestions ?? []))
+        // Let a failure be retried on the next open rather than caching "none".
+        .catch(() => { suggestionInflight = null; return []; });
+    return suggestionInflight;
+}
 
 export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = false }: {
     clientId?: string;
@@ -272,7 +292,9 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
     const [turns, setTurns] = useState<Turn[]>([]);
     const [q, setQ] = useState("");
     const [busy, setBusy] = useState(false);
-    const [suggestions, setSuggestions] = useState<string[] | null>(null);
+    // Starts from the cache when there is one, so a reopen shows the chips in
+    // the first frame instead of replaying the skeleton.
+    const [suggestions, setSuggestions] = useState<string[] | null>(suggestionCache);
     // The agent's real steps, streamed as it works.
     const [steps, setSteps] = useState<string[]>([]);
     const [showHistory, setShowHistory] = useState(false);
@@ -328,10 +350,7 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
 
     useEffect(() => {
         let live = true;
-        fetch("/api/ask/suggestions")
-            .then((r) => r.json())
-            .then((j) => { if (live) setSuggestions(j.suggestions ?? []); })
-            .catch(() => { if (live) setSuggestions([]); });
+        fetchSuggestions().then((s) => { if (live) setSuggestions(s); });
         return () => { live = false; };
     }, []);
 
@@ -512,17 +531,33 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
                             </div>
                             <div className="text-[15px] font-medium">Ask about your payments</div>
                             <p className="text-[13px] text-[var(--text-dim)] mt-1.5 max-w-sm mx-auto">
+                                {/* Only the settled no-payments case gets its own
+                                    line. While loading it keeps the ordinary copy,
+                                    because swapping the sentence and then swapping
+                                    it back is a flicker in the first thing read. */}
                                 {suggestions?.length === 0
                                     ? "Once you've made a payment, you can ask about totals by period, country or contractor here."
                                     : "Totals by period, country or contractor — answered from your own payment records."}
                             </p>
                             {/* Built from this client's own history, so every one of
-                                these returns a real answer rather than "no payments". */}
-                            {suggestions && suggestions.length > 0 && (
+                                these returns a real answer rather than "no payments".
+                                The skeletons hold the exact height and shape of the
+                                real chips, so when they arrive nothing moves. */}
+                            {suggestions === null ? (
+                                <div className="mt-5 flex flex-wrap justify-center gap-2" aria-hidden>
+                                    {[124, 148, 106, 132].slice(0, SUGGESTION_COUNT).map((w, i) => (
+                                        <span
+                                            key={i}
+                                            style={{ width: w, animationDelay: `${i * 90}ms` }}
+                                            className="h-[29px] animate-pulse rounded-lg border border-[var(--border)] bg-[var(--surface-2)]"
+                                        />
+                                    ))}
+                                </div>
+                            ) : suggestions.length > 0 && (
                                 <div className="mt-5 flex flex-wrap justify-center gap-2">
                                     {suggestions.map((s) => (
                                         <button key={s} onClick={() => ask(s)}
-                                            className="text-[12px] px-3 py-1.5 rounded-lg border border-[var(--border-strong)] text-[var(--text-dim)] hover:text-[var(--text)] hover:border-[var(--accent-line)] transition">
+                                            className="anim-pop text-[12px] px-3 py-1.5 rounded-lg border border-[var(--border-strong)] text-[var(--text-dim)] hover:text-[var(--text)] hover:border-[var(--accent-line)] transition">
                                             {s}
                                         </button>
                                     ))}

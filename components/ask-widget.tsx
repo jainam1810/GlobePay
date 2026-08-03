@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import { Resizable } from "re-resizable";
 import { MessageCircle, X, Maximize2, Minimize2 } from "lucide-react";
-import AskBot from "@/components/ask-bot";
+import AskBot, { fetchSuggestions } from "@/components/ask-bot";
 
 // Two presets. "Comfortable" is the default; "roomy" is for reading a long
 // breakdown without scrolling. Free resizing sits on top of both.
@@ -46,6 +46,12 @@ export default function AskWidget() {
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
     }, [open]);
+
+    // The panel is only mounted once it's opened, so its starter questions would
+    // otherwise be requested at the exact moment someone is looking at the empty
+    // space they belong in. This launcher is mounted on every page, so asking
+    // here means the answer is normally cached before the first click.
+    useEffect(() => { void fetchSuggestions(); }, []);
 
     function togglePreset() {
         const next = preset === "normal" ? "large" : "normal";

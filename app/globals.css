@@ -90,6 +90,42 @@ body {
   padding: 0;
 }
 
+/* Pointer on anything that does something when clicked.
+ *
+ * Browsers use an arrow for <button> by default — pointer is only automatic on
+ * links — so every button, menu item, tab and disclosure in the app was showing
+ * the same cursor as plain text. Set once here rather than by adding a class at
+ * each call site, which is how half of them end up missed.
+ *
+ * The role selectors cover the Radix primitives (menus, selects, tabs), whose
+ * triggers and items are divs carrying an ARIA role rather than real buttons.
+ * Disabled controls get not-allowed instead: they look clickable but aren't,
+ * and that is exactly when the cursor should say so. */
+button:not(:disabled),
+summary,
+[role="button"]:not([aria-disabled="true"]),
+[role="menuitem"],
+[role="menuitemcheckbox"],
+[role="menuitemradio"],
+[role="option"],
+[role="tab"],
+[role="switch"],
+[role="combobox"],
+label:has(> input[type="checkbox"]),
+label:has(> input[type="radio"]),
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled),
+input[type="file"]:not(:disabled),
+select:not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"],
+select:disabled {
+  cursor: not-allowed;
+}
+
 body {
   background: var(--bg);
   color: var(--text);

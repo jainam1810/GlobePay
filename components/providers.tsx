@@ -1,15 +1,19 @@
 "use client";
-import { WagmiProvider } from "wagmi";
+import { WagmiProvider, type State } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ProgressProvider } from "@bprogress/next/app";
 import { useState } from "react";
 import { config } from "@/lib/wagmi";
 import { TooltipProvider } from "@/components/ui/overlays";
 
-export default function Providers({ children }: { children: React.ReactNode }) {
+export default function Providers({ children, initialState }: {
+    children: React.ReactNode;
+    /** Wallet state recovered from the cookie in the root layout. */
+    initialState?: State;
+}) {
     const [queryClient] = useState(() => new QueryClient());
     return (
-        <WagmiProvider config={config}>
+        <WagmiProvider config={config} initialState={initialState}>
             <QueryClientProvider client={queryClient}>
                 {/* A hairline at the top of the window whenever a navigation is in
                     flight. App Router transitions can take a beat on a cold route,

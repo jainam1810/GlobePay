@@ -1,4 +1,4 @@
-import { http, createConfig, type CreateConnectorFn } from "wagmi";
+import { http, createConfig, createStorage, cookieStorage, type CreateConnectorFn } from "wagmi";
 import { baseSepolia } from "wagmi/chains";
 import { injected, safe, walletConnect } from "wagmi/connectors";
 
@@ -49,4 +49,11 @@ export const config = createConfig({
         [baseSepolia.id]: http(process.env.NEXT_PUBLIC_RPC_URL),
     },
     ssr: true,
+    // Cookies rather than the default localStorage, because localStorage cannot
+    // be read on the server: every page began life rendered as "not connected"
+    // and only corrected itself once the client had hydrated and reconnected.
+    // That flash is what made a still-connected wallet look disconnected. A
+    // cookie is sent with the request, so the first paint is already right —
+    // see cookieToInitialState in app/layout.tsx.
+    storage: createStorage({ storage: cookieStorage }),
 });
