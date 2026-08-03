@@ -23,7 +23,7 @@ export default function PortalShell({ children, companyName, homeCountry, email 
     const isActive = (href: string) => href === "/portal" ? pathname === "/portal" : pathname.startsWith(href);
 
     return (
-        <div className="relative z-[1] flex min-h-screen">
+        <div className="app-ambient relative z-[1] flex min-h-screen">
             <aside className="glass-bar backdrop-blur-xl backdrop-saturate-150 hidden md:flex w-[252px] shrink-0 flex-col justify-between border-r px-4 py-6">
                 <div>
                     <Link href="/portal" className="flex items-center gap-2.5 px-2 mb-2">
