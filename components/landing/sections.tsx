@@ -59,14 +59,20 @@ const BUILT_ON = ["Base", "USDC", "Circle", "Supabase", "Next.js", "viem"];
 
 export function Hero() {
     return (
-        <section className="relative overflow-hidden px-5 pb-14 pt-28 sm:px-8 md:pb-20 md:pt-36">
+        <section className="relative overflow-hidden px-5 pb-12 pt-24 sm:px-8 sm:pt-28 md:pb-20 md:pt-36">
             <div aria-hidden className="absolute inset-0 -z-10">
                 <div className="grid-bg" />
                 <div className="hero-glow-a left-[70%] top-[-24%] h-[560px] w-[560px] md:h-[780px] md:w-[780px]" />
                 <div className="hero-glow-b left-[4%] top-[34%] h-[380px] w-[380px] md:h-[520px] md:w-[520px]" />
             </div>
 
-            <div className="mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+            {/* minmax(0,…) on the mobile column too, not just at lg.
+                A grid track sizes to its content's max-content by default, and
+                the logo marquee is a max-content track — so on a 390px phone the
+                single column computed to 1162px and the whole hero was laid out
+                off-screen and clipped by the section's overflow-hidden. The text
+                looked truncated mid-sentence and the buttons ran off the edge. */}
+            <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] items-center gap-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
                 <div>
                     <Reveal>
                         <Link
@@ -144,7 +150,7 @@ const PAYEES = [
 
 export function GlobalPayroll() {
     return (
-        <section id="how" className="scroll-mt-24 px-5 py-20 sm:px-8 md:py-28">
+        <section id="how" className="scroll-mt-24 px-5 py-14 sm:px-8 sm:py-20 md:py-28">
             <div className="mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-2">
                 <div>
                     <Head
@@ -211,7 +217,7 @@ export function GlobalPayroll() {
 
 export function Platform() {
     return (
-        <section id="platform" className="scroll-mt-24 px-5 py-20 sm:px-8 md:py-28">
+        <section id="platform" className="scroll-mt-24 px-5 py-14 sm:px-8 sm:py-20 md:py-28">
             <div className="mx-auto max-w-6xl">
                 <Head
                     tag="The platform"
@@ -293,7 +299,7 @@ export function Platform() {
 
 export function PaymentRun() {
     return (
-        <section className="relative overflow-hidden px-5 py-20 sm:px-8 md:py-28">
+        <section className="relative overflow-hidden px-5 py-14 sm:px-8 sm:py-20 md:py-28">
             <div aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[420px] w-[860px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--accent-glow)] opacity-25 blur-[140px]" />
 
             <div className="mx-auto max-w-4xl">
@@ -374,7 +380,7 @@ const FIELDS = [
 
 export function InvoiceAI() {
     return (
-        <section className="px-5 py-20 sm:px-8 md:py-28">
+        <section className="px-5 py-14 sm:px-8 sm:py-20 md:py-28">
             <div className="mx-auto max-w-6xl">
                 <Head
                     tag="Invoices"
@@ -535,7 +541,7 @@ const PLANS = [
 
 export function Pricing() {
     return (
-        <section id="pricing" className="scroll-mt-24 px-5 py-20 sm:px-8 md:py-28">
+        <section id="pricing" className="scroll-mt-24 px-5 py-14 sm:px-8 sm:py-20 md:py-28">
             <div className="mx-auto max-w-6xl">
                 <Head
                     center
@@ -635,7 +641,7 @@ const PROOF = [
 
 export function Proof() {
     return (
-        <section id="proof" className="scroll-mt-24 px-5 py-20 sm:px-8 md:py-28">
+        <section id="proof" className="scroll-mt-24 px-5 py-14 sm:px-8 sm:py-20 md:py-28">
             <div className="mx-auto max-w-6xl">
                 <Head
                     center
@@ -733,7 +739,7 @@ const HALO = {
 
 export function Roadmap() {
     return (
-        <section id="roadmap" className="scroll-mt-24 px-5 py-20 sm:px-8 md:py-28">
+        <section id="roadmap" className="scroll-mt-24 px-5 py-14 sm:px-8 sm:py-20 md:py-28">
             <div className="mx-auto max-w-6xl">
                 <Head
                     center
@@ -838,7 +844,7 @@ const FAQ = [
 
 export function Faq() {
     return (
-        <section id="faq" className="scroll-mt-24 px-5 py-20 sm:px-8 md:py-28">
+        <section id="faq" className="scroll-mt-24 px-5 py-14 sm:px-8 sm:py-20 md:py-28">
             <div className="mx-auto grid max-w-5xl gap-12 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
                 <Head tag="FAQ" title={<>Questions,<br />Answered Plainly</>} />
                 <Reveal index={1}>

@@ -59,7 +59,7 @@ export function SiteNav() {
                 }`}
         >
             <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-5 py-3.5 sm:px-8">
-                <Link href="/" aria-label="GlobePay home"><Logo /></Link>
+                <Link href="/" aria-label="GlobePay home" className="-my-2 py-2"><Logo /></Link>
 
                 <nav className="hidden items-center gap-1 lg:flex" aria-label="Sections">
                     {LINKS.map((l) => (
@@ -80,7 +80,7 @@ export function SiteNav() {
                     <button
                         onClick={() => setOpen(true)}
                         aria-label="Open menu"
-                        className="rounded-lg p-2 text-[var(--text-dim)] transition hover:bg-[var(--surface-2)] hover:text-white lg:hidden"
+                        className="-mr-1 rounded-lg p-3 text-[var(--text-dim)] transition hover:bg-[var(--surface-2)] hover:text-white lg:hidden"
                     >
                         <Menu size={20} />
                     </button>
