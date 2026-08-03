@@ -121,8 +121,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
                 .eq("id", id).select().single();
             if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-            // Tax ledger entries — never let a ledger hiccup fail a confirmed payment.
-            try { await writeLedgerRecords(run.client_id, run.line_items, txHash, run.note); } catch { }
+            // A run can go out without everybody in it: the pre-flight may have
+            // found wallets that cannot receive, and the client chose to pay the
+            // rest. Only the wallets actually in the transaction get a record —
+            // filing a receipt for someone who wasn't paid would be a lie in the
+            // audit pack, and the ledger is the thing people trust.
+            const paid: unknown = body.paidWallets;
+            const lines = Array.isArray(paid) && paid.length > 0
+                ? run.line_items.filter((li: PayrollLineItem) =>
+                    (paid as string[]).some((w) => String(w).toLowerCase() === li.wallet.toLowerCase()))
+                : run.line_items;
+
+            // Never let a ledger hiccup fail a confirmed payment.
+            try { await writeLedgerRecords(run.client_id, lines, txHash, run.note); } catch { }
 
             return NextResponse.json({ run: data });
         }

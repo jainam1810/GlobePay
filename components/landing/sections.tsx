@@ -662,32 +662,119 @@ export function Proof() {
     );
 }
 
+/* ── 7b. what's coming ──────────────────────────────────────────────────────
+   A roadmap earns trust only if it is honest about what is not built yet, so
+   every item here is labelled by stage and nothing claims to exist. The first
+   one is the real gap in the product today: you have to source USDC yourself
+   before you can run payroll, which is the single biggest thing standing
+   between a finance team and their first payment. */
+
+const ROADMAP = [
+    {
+        stage: "Next",
+        title: "Buy USDC straight from GlobePay",
+        body: "Today you bring your own stablecoin — you fund your wallet on an exchange first, then run payroll. We're building the on-ramp so you can top up in your own currency from inside GlobePay, and pay out the same afternoon. One less account, one less transfer, one less delay.",
+        icon: Wallet,
+    },
+    {
+        stage: "Next",
+        title: "USDT alongside USDC",
+        body: "Some teams are already paid in USDT and would rather not switch. The payment contract accepts any standard token, so this is about adding and testing rather than rebuilding.",
+        icon: Layers,
+    },
+    {
+        stage: "Later",
+        title: "Payouts to a local bank account",
+        body: "Not every freelancer wants to hold a stablecoin. The off-ramp lets them take it to their own bank in their own currency, while you keep paying the same way.",
+        icon: Receipt,
+    },
+];
+
+export function Roadmap() {
+    return (
+        <section id="roadmap" className="scroll-mt-24 px-5 py-20 sm:px-8 md:py-28">
+            <div className="mx-auto max-w-6xl">
+                <Head
+                    center
+                    tag="What's coming"
+                    title={<>Built to Go<br />Further Than This</>}
+                    blurb="GlobePay pays your team today. Here's what we're building next — and we'll say plainly which parts aren't live yet."
+                />
+
+                <StaggerGroup className="mt-11 grid gap-4 md:grid-cols-3">
+                    {ROADMAP.map((r) => (
+                        <StaggerItem key={r.title}>
+                            <div className="card card-lift h-full p-6">
+                                <div className="flex items-center justify-between">
+                                    <div className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
+                                        <r.icon size={17} />
+                                    </div>
+                                    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.1em] ${r.stage === "Next"
+                                        ? "border-[var(--accent-line)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                                        : "border-[var(--border-strong)] text-[var(--text-faint)]"
+                                        }`}>
+                                        {r.stage}
+                                    </span>
+                                </div>
+                                <h3 className="mt-4 text-[15px] font-medium tracking-[-0.01em]">{r.title}</h3>
+                                <p className="mt-2 text-[13px] leading-relaxed text-[var(--text-dim)]">{r.body}</p>
+                            </div>
+                        </StaggerItem>
+                    ))}
+                </StaggerGroup>
+
+                <Reveal index={2}>
+                    <div className="mt-8 flex flex-col items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] px-5 py-4 sm:flex-row">
+                        <span className="text-[13px] text-[var(--text-dim)]">
+                            Want one of these sooner? Tell us — what customers ask for is what gets built first.
+                        </span>
+                        <Link
+                            href="/contact"
+                            className="flex items-center gap-1.5 whitespace-nowrap text-[13px] text-[var(--accent)] transition hover:gap-2"
+                        >
+                            Tell us what you need <ArrowUpRight size={13} />
+                        </Link>
+                    </div>
+                </Reveal>
+            </div>
+        </section>
+    );
+}
+
 /* ── 8. faq ─────────────────────────────────────────────────────────────── */
 
 const FAQ = [
     {
-        q: "Where does the money actually sit?",
-        a: "In your wallet, until the moment it lands in your freelancers'. GlobePay is non-custodial — we orchestrate the transfer and store the records, but we never hold a balance and never hold a key. There is no GlobePay account with your money in it.",
+        q: "Where does my money sit?",
+        a: "In your wallet, right up until it lands in your freelancers'. GlobePay never holds your money and never holds your keys — there is no GlobePay account with your balance in it.",
     },
     {
-        q: "Could one bad payment hold up the other ninety-nine?",
-        a: "In practice, no — because there is almost nothing a single payment can fail at on its own. Every wallet address is checked before a run is even prepared, so a mistyped one never reaches the batch. After that, the only realistic reasons a stablecoin payment fails are not enough balance or not enough approved, and both of those apply to the entire run rather than to one person. So the case where ninety-nine are held up by one is a case that essentially cannot arise.",
+        q: "If one of 100 freelancers can't be paid, do the other 99 wait?",
+        a: "No. Before you sign anything, we check every wallet in the run. If any of them can't receive the payment, we stop and show you exactly who — and you can pay everyone else with one click. The ones we couldn't reach stay on our books, and we prepare a fresh run for them once their wallet is sorted.",
     },
     {
-        q: "What if a run does fail?",
-        a: "Everyone stays unpaid and you retry, rather than discovering later that sixty-three people were paid and thirty-seven were not. That is the trade we chose deliberately: an all-or-nothing run is one you can simply run again, where a partly-completed one has to be reconciled by hand, person by person, before you dare touch it.",
+        q: "Why check first instead of just trying?",
+        a: "Because a batch is one transaction: if one payment would fail, the whole thing fails. Checking first costs nothing and takes about a second. Trying first costs you a transaction fee and pays nobody.",
+    },
+    {
+        q: "What if I don't have enough to cover the run?",
+        a: "The same check catches that, and tells you exactly how much you're short before you sign. No failed transaction, no wasted fee.",
     },
     {
         q: "What stops a typo in a wallet address?",
-        a: "Wallet addresses carry a built-in checksum, and GlobePay verifies it before an address is ever saved or paid — a single wrong character fails the check and is rejected on the spot. The AI fills in names, addresses and amounts from whatever you send us, and that check sits underneath it, so an extraction slip cannot become a payment to nowhere. What no system can catch is an address that is valid but belongs to the wrong person, which is why you confirm every run before signing.",
+        a: "Wallet addresses have a built-in integrity check, and we run it before an address is ever saved or paid. Change one character and it fails on the spot. So the AI can read a wallet off a photo without a slip becoming a payment to nowhere. The one thing no check can catch is a valid address belonging to the wrong person — which is why you confirm every run before signing.",
+    },
+    {
+        q: "Do you support USDC or USDT?",
+        a: "USDC today. USDT is on the roadmap — the payment contract already accepts any standard token, so it's a matter of adding and testing it rather than rebuilding anything. We started with USDC because it's the most widely held and most liquid stablecoin on Base.",
     },
     {
         q: "Does the AI decide any of the numbers?",
-        a: "No, and that split is enforced in code. The model reads messy invoices and answers questions in plain English; every amount, rate, conversion and total is computed by the application. Models are unreliable at arithmetic, so nothing financial is left to one.",
+        a: "No. The AI reads messy invoices and answers questions in plain English. Every amount, rate and total is worked out in code. AI is unreliable at arithmetic, so nothing about your money is left to it.",
     },
     {
-        q: "Is this on mainnet?",
-        a: "Not yet. GlobePay runs on Base Sepolia, a testnet, using test USDC — so you can exercise the entire flow, including real signatures and real on-chain proof, without moving real money. Production runs on Base mainnet, which is Ethereum, settling to it while keeping fees low enough that paying a hundred people stays worth doing.",
+        q: "Is this live with real money?",
+        a: "Not yet. GlobePay runs on Base Sepolia, a test network, using test USDC — so you can try the whole flow, real signatures and real proof included, without moving real money. Production runs on Base, which is Ethereum, at fees low enough that paying a hundred people is still worth doing.",
     },
 ];
 
