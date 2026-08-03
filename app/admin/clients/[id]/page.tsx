@@ -574,7 +574,7 @@ function EditClientForm({ client, onSaved, onCancel }: { client: DbClient; onSav
             <Field label="Company name">
                 <input required className={inputCls} value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} />
             </Field>
-            <Field label="HQ country" hint="Drives domestic vs cross-border tax treatment.">
+            <Field label="HQ country">
                 <select className={inputCls} value={form.home_country} onChange={(e) => setForm({ ...form, home_country: e.target.value })}>
                     {COMPANY_COUNTRIES.map((c) => <option key={c}>{c}</option>)}
                 </select>

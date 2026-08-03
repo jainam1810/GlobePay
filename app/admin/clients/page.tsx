@@ -107,7 +107,7 @@ function NewClientForm({ onCreated }: { onCreated: () => void }) {
                 <input required className={input} value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} placeholder="Acme GmbH" />
             </div>
             <div>
-                <label className="block text-xs text-[var(--text-dim)] mb-1.5">HQ country <span className="text-[var(--text-faint)]">(drives tax treatment)</span></label>
+                <label className="block text-xs text-[var(--text-dim)] mb-1.5">HQ country</label>
                 <select className={input} value={form.home_country} onChange={(e) => setForm({ ...form, home_country: e.target.value })}>
                     {COMPANY_COUNTRIES.map((c) => <option key={c}>{c}</option>)}
                 </select>

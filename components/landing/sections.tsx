@@ -20,11 +20,10 @@ import { Button } from "@/components/ui/kit";
 import { Accordion } from "@/components/ui/overlays";
 import { IsoArt } from "@/components/landing/iso-art";
 
-const DISPERSE = "0xfDA6e1FaEa69958407c8a5c49b1330c8cC54A897";
-const SCAN = `https://sepolia.basescan.org/address/${DISPERSE}`;
-
-/** Wallet addresses truncate in the middle — the ends are what people check. */
-const addr = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+// The deployed contract address is deliberately not shown anywhere in the UI.
+// It is public on chain for anyone who goes looking, but putting it on the
+// marketing page invites people to audit plumbing instead of reading what the
+// product does — and anyone who genuinely wants it can ask on /contact.
 
 /* ── shared ─────────────────────────────────────────────────────────────── */
 
@@ -70,21 +69,19 @@ export function Hero() {
             <div className="mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
                 <div>
                     <Reveal>
-                        <a
-                            href={SCAN}
-                            target="_blank"
-                            rel="noreferrer"
+                        <Link
+                            href="/contact"
                             className="group inline-flex items-center gap-3 rounded-full border border-[var(--border-strong)] bg-[rgba(255,255,255,0.04)] py-1 pl-4 pr-1 text-[13px] text-[var(--text-dim)] transition hover:border-[var(--accent-line)]"
                         >
                             <span className="flex items-center gap-2">
                                 <span className="dot dot-ok" /> Live on Base
                             </span>
                             <span aria-hidden className="hidden h-3 w-px bg-[var(--border-strong)] sm:block" />
-                            <span className="hidden sm:inline">Contract verified</span>
+                            <span className="hidden sm:inline">Paid in USDC</span>
                             <span className="inline-flex items-center gap-1 rounded-full bg-[var(--accent)] px-2.5 py-1 text-[12px] font-medium text-white">
-                                View <ArrowUpRight size={12} className="transition-transform group-hover:translate-x-px group-hover:-translate-y-px" />
+                                Talk to us <ArrowUpRight size={12} className="transition-transform group-hover:translate-x-px group-hover:-translate-y-px" />
                             </span>
-                        </a>
+                        </Link>
                     </Reveal>
 
                     <Reveal index={1}>
@@ -95,7 +92,7 @@ export function Hero() {
 
                     <Reveal index={2}>
                         <p className="mt-6 max-w-md text-[15px] leading-relaxed text-[var(--text-dim)] md:text-base">
-                            Pay every international contractor in USDC — one transaction, one
+                            Pay every international freelancer in USDC — one transaction, one
                             signature, straight from your own wallet. GlobePay never holds your
                             funds or your keys.
                         </p>
@@ -153,12 +150,12 @@ export function GlobalPayroll() {
                     <Head
                         tag="Global payroll"
                         title={<>Pay Every Country<br />on the Same Day</>}
-                        blurb="No correspondent banks, no three-day wires, no wondering which intermediary took a cut. Contractors are paid in dollars they can hold, wherever they are."
+                        blurb="No correspondent banks, no three-day wires, no wondering which intermediary took a cut. Freelancers are paid in dollars they can hold, wherever they are."
                     />
 
                     <StaggerGroup className="mt-10 grid grid-cols-3 gap-6">
                         {[
-                            { v: <CountUp to={1} />, l: "Transaction, however many contractors" },
+                            { v: <CountUp to={1} />, l: "Transaction, however many freelancers" },
                             { v: <CountUp to={0} />, l: "Custody — funds never touch us" },
                             { v: <CountUp to={3} />, l: "Countries paid so far" },
                         ].map((s, i) => (
@@ -239,7 +236,7 @@ export function Platform() {
                                     {[
                                         { icon: Wallet, label: "Your wallet" },
                                         { icon: Layers, label: "Disperse" },
-                                        { icon: Receipt, label: "Contractors" },
+                                        { icon: Receipt, label: "Freelancers" },
                                     ].map((s, i, all) => (
                                         <div key={s.label} className="flex min-w-0 flex-1 items-center gap-2.5">
                                             <div className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-2.5 py-3 text-center">
@@ -273,10 +270,10 @@ export function Platform() {
                                     </span>
                                 </div>
                                 <div className="mt-3 font-mono text-[30px] font-medium tracking-[-0.03em]">$18,400.00</div>
-                                <div className="mt-1 text-[13px] text-[var(--text-dim)]">12 contractors · 3 countries</div>
+                                <div className="mt-1 text-[13px] text-[var(--text-dim)]">12 freelancers · 3 countries</div>
 
                                 <div className="mt-5 grid grid-cols-3 gap-2 text-center">
-                                    {[["Contractors", "12"], ["Countries", "3"], ["Signatures", "1"]].map(([k, v]) => (
+                                    {[["Freelancers", "12"], ["Countries", "3"], ["Signatures", "1"]].map(([k, v]) => (
                                         <div key={k} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-2 py-2.5">
                                             <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)]">{k}</div>
                                             <div className="mt-0.5 font-mono text-[13px]">{v}</div>
@@ -303,15 +300,15 @@ export function PaymentRun() {
                 <Head
                     center
                     tag="One signature"
-                    title={<>Twelve Contractors,<br />One Transaction</>}
-                    blurb="Approve USDC once. After that every run is a single signature, and the whole thing settles together — if one transfer fails, none of them happen."
+                    title={<>Twelve Freelancers,<br />One Transaction</>}
+                    blurb="Approve USDC once. Every run after that is a single signature, and the whole batch settles together. Wallet addresses are verified before a run is prepared, so the usual reason one payment goes wrong never reaches it."
                 />
 
                 <Reveal index={3}>
                     <div className="mt-11 grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
                         <div className="card overflow-hidden">
                             <div className="border-b border-[var(--border)] px-4 py-3 text-[11px] uppercase tracking-wider text-[var(--text-faint)]">
-                                12 contractors · 3 countries
+                                12 freelancers · 3 countries
                             </div>
                             <div className="divide-y divide-[var(--border)]">
                                 {PAYEES.map((p) => (
@@ -332,7 +329,7 @@ export function PaymentRun() {
                             <div className="px-5 py-5">
                                 <div className="text-[11px] uppercase tracking-wider text-[var(--text-faint)]">Confirm payment run</div>
                                 <div className="mt-2 font-mono text-3xl font-medium tracking-[-0.02em]">$18,400.00</div>
-                                <div className="mt-1 text-[13px] text-[var(--text-dim)]">to 12 contractors</div>
+                                <div className="mt-1 text-[13px] text-[var(--text-dim)]">to 12 freelancers</div>
 
                                 <div className="mt-5 space-y-2 text-[13px]">
                                     <div className="flex items-center gap-2 text-[var(--text-dim)]">
@@ -345,7 +342,7 @@ export function PaymentRun() {
 
                                 <Button className="mt-5 w-full">Send payment</Button>
                                 <p className="mt-3 text-center text-[11px] text-[var(--text-faint)]">
-                                    One signature · settles together or not at all
+                                    One signature · addresses verified before sending
                                 </p>
                             </div>
                         </div>
@@ -359,7 +356,7 @@ export function PaymentRun() {
 /* ── 5. invoices ────────────────────────────────────────────────────────── */
 
 const FIELDS = [
-    ["Contractor", "Amara Eze"],
+    ["Freelancer", "Amara Eze"],
     ["Invoice number", "INV-2026-014"],
     ["Amount", "$2,400.00"],
     ["Date", "31 July 2026"],
@@ -377,37 +374,109 @@ export function InvoiceAI() {
                     blurb="A photo, a PDF, a forwarded email. AI reads the fields; every number that touches money is then calculated in code, never guessed."
                 />
 
-                <div className="mt-11 grid gap-4 lg:grid-cols-2">
+                <div className="mt-11 grid items-stretch gap-4 lg:grid-cols-[1fr_auto_1fr]">
+                    {/* Left: what actually arrives. A real-looking document rather
+                        than grey bars — the point of the section is that the input
+                        is messy, and a skeleton communicates "loading", not "mess". */}
                     <Reveal index={1}>
                         <div className="card h-full overflow-hidden">
-                            <div className="border-b border-[var(--border)] px-4 py-3 text-[11px] uppercase tracking-wider text-[var(--text-faint)]">
-                                invoice-scan.jpg
+                            <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 text-[11px] uppercase tracking-wider text-[var(--text-faint)]">
+                                <span>invoice-scan.jpg</span>
+                                <span className="normal-case tracking-normal">what they sent</span>
                             </div>
-                            <div className="space-y-2.5 p-6 opacity-60">
-                                {["33%", "66%", "50%", "83%", "60%"].map((w, i) => (
-                                    <div key={i} className="h-2.5 rounded bg-[var(--surface-2)]" style={{ width: w }} />
-                                ))}
-                                <div className="mt-6 h-7 w-2/5 rounded bg-[var(--surface-2)]" />
-                                <div className="h-2 w-1/4 rounded bg-[var(--surface-2)]" />
+                            <div className="p-5">
+                                <div
+                                    className="rounded-lg bg-[#EFEAE0] p-5 text-[#2A2722] shadow-[0_18px_40px_-16px_rgba(0,0,0,0.8)]"
+                                    style={{ transform: "rotate(-0.7deg)" }}
+                                >
+                                    <div className="flex items-start justify-between gap-4 border-b border-[#CFC7B8] pb-3">
+                                        <div>
+                                            <div className="text-[15px] font-semibold tracking-tight">A. Eze</div>
+                                            <div className="text-[10px] text-[#6E675C]">Backend engineering · Lagos</div>
+                                        </div>
+                                        <div className="text-right text-[10px] text-[#6E675C]">
+                                            <div>INVOICE</div>
+                                            <div className="font-mono">INV-2026-014</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-3 space-y-1.5 text-[11px]">
+                                        {[
+                                            ["API integration — July", "1,600.00"],
+                                            ["Bug fixes + on-call", "500.00"],
+                                            ["Deployment support", "300.00"],
+                                        ].map(([d, a]) => (
+                                            <div key={d} className="flex justify-between gap-3">
+                                                <span className="truncate text-[#4A443B]">{d}</span>
+                                                <span className="font-mono">{a}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="mt-3 flex justify-between border-t border-[#CFC7B8] pt-2 text-[13px] font-semibold">
+                                        <span>Total due</span>
+                                        <span className="font-mono">USD 2,400.00</span>
+                                    </div>
+
+                                    {/* The bit that makes it a mess: a wallet scrawled
+                                        at the bottom, wrapping, easy to mistype. */}
+                                    <div className="mt-3 border-t border-dashed border-[#CFC7B8] pt-2">
+                                        <div className="text-[9px] uppercase tracking-wider text-[#8A8275]">pay to (usdc)</div>
+                                        <div className="font-mono text-[10px] leading-snug break-all text-[#4A443B]">
+                                            0x7a0e76dc321B5d44BcEa20527f4B93d13bfc93e5
+                                        </div>
+                                    </div>
+                                    <div className="mt-2 text-[10px] italic text-[#6E675C]">
+                                        &ldquo;sorry it&rsquo;s late — same wallet as last month, thanks!&rdquo;
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </Reveal>
 
+                    <div aria-hidden className="grid place-items-center py-1 text-[var(--text-faint)] lg:py-0">
+                        <ArrowRight size={20} className="rotate-90 lg:rotate-0" />
+                    </div>
+
                     <Reveal index={2}>
-                        <div className="card h-full overflow-hidden">
-                            <div className="flex items-center gap-2 border-b border-[var(--border)] px-4 py-3 text-[11px] uppercase tracking-wider text-[var(--text-faint)]">
-                                <Sparkles size={13} className="text-[var(--accent)]" /> Extracted
+                        <div className="card flex h-full flex-col overflow-hidden">
+                            <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 text-[11px] uppercase tracking-wider text-[var(--text-faint)]">
+                                <span className="flex items-center gap-2">
+                                    <Sparkles size={13} className="text-[var(--accent)]" /> Extracted
+                                </span>
+                                <span className="normal-case tracking-normal">what we file</span>
                             </div>
                             <div className="divide-y divide-[var(--border)]">
                                 {FIELDS.map(([label, value]) => (
                                     <div key={label} className="flex items-center justify-between gap-4 px-4 py-3">
                                         <span className="text-[13px] text-[var(--text-dim)]">{label}</span>
-                                        <span className="font-mono text-[13px] text-white">{value}</span>
+                                        <span className="flex items-center gap-2 font-mono text-[13px] text-white">
+                                            {value}
+                                            {label === "Wallet" && (
+                                                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--ok-soft)] px-2 py-0.5 font-sans text-[10px] text-[var(--ok)]">
+                                                    <Check size={10} /> verified
+                                                </span>
+                                            )}
+                                        </span>
                                     </div>
                                 ))}
                             </div>
-                            <div className="border-t border-[var(--border)] px-4 py-3 text-[12px] text-[var(--text-faint)]">
-                                You confirm every field before anything is saved.
+
+                            {/* The safety net, stated without naming the mechanism. */}
+                            <div className="mt-auto border-t border-[var(--border)] bg-[var(--surface-2)] px-4 py-3.5">
+                                <div className="flex items-start gap-2.5">
+                                    <ShieldCheck size={15} className="mt-px shrink-0 text-[var(--ok)]" />
+                                    <p className="text-[12px] leading-relaxed text-[var(--text-dim)]">
+                                        <span className="text-[var(--text)]">A mistyped wallet can&rsquo;t get through.</span>{" "}
+                                        Every address carries its own integrity check, and we run it before an
+                                        address is saved or paid — change one character and it fails on the spot.
+                                        So the AI can read a wallet off a photo without a slip becoming a payment
+                                        to nowhere.
+                                    </p>
+                                </div>
+                                <p className="mt-2.5 pl-[26px] text-[11px] text-[var(--text-faint)]">
+                                    You still confirm every field before anything is saved.
+                                </p>
                             </div>
                         </div>
                     </Reveal>
@@ -425,7 +494,7 @@ const PLANS = [
         price: "$0",
         unit: "/month",
         blurb: "The whole product on Base Sepolia. What the demo runs on.",
-        features: ["Unlimited contractors", "Batch payment runs", "AI invoice extraction", "Audit pack export", "Testnet USDC"],
+        features: ["Unlimited freelancers", "Batch payment runs", "AI invoice extraction", "Audit pack export", "Testnet USDC"],
         cta: "Open the app",
         href: "/login",
     },
@@ -522,7 +591,6 @@ const PROOF = [
         icon: ShieldCheck,
         title: "The contract has no owner",
         body: "No admin, no pause, no upgrade path. Twenty-five lines that move tokens and nothing else — so there is no privileged key that could ever be turned against you.",
-        link: { label: "Read the source", href: `${SCAN}#code` },
     },
     {
         icon: Lock,
@@ -531,14 +599,13 @@ const PROOF = [
     },
     {
         icon: Layers,
-        title: "All or nothing settlement",
-        body: "A run is one transaction. If a single transfer would fail, the whole thing reverts — a payroll can never land half-paid and leave you reconciling by hand.",
+        title: "A run can't land half-paid",
+        body: "Addresses are verified before a run is prepared, so the usual cause of a failed payment never reaches it. And a run is one transaction, so you are never left reconciling who got paid and who didn't.",
     },
     {
         icon: Receipt,
-        title: "Per-contractor proof on chain",
-        body: "Each recipient gets their own USDC Transfer event, matchable by wallet address. You can prove a specific person was paid without trusting our records.",
-        link: { label: "View on Basescan", href: SCAN },
+        title: "Per-freelancer proof on chain",
+        body: "Each recipient gets their own USDC transfer, matchable by wallet address. You can prove a specific person was paid without trusting our records.",
     },
     {
         icon: FileText,
@@ -572,16 +639,6 @@ export function Proof() {
                                 </div>
                                 <h3 className="mt-4 text-[15px] font-medium tracking-[-0.01em]">{p.title}</h3>
                                 <p className="mt-2 text-[13px] leading-relaxed text-[var(--text-dim)]">{p.body}</p>
-                                {p.link && (
-                                    <a
-                                        href={p.link.href}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="mt-4 inline-flex items-center gap-1 text-[12px] text-[var(--accent)] transition hover:gap-1.5"
-                                    >
-                                        {p.link.label} <ArrowUpRight size={12} />
-                                    </a>
-                                )}
                             </div>
                         </StaggerItem>
                     ))}
@@ -589,15 +646,15 @@ export function Proof() {
 
                 <Reveal index={2}>
                     <div className="mt-8 flex flex-col items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] px-5 py-4 sm:flex-row">
-                        <span className="text-[13px] text-[var(--text-dim)]">Disperse contract, verified on Base Sepolia</span>
-                        <a
-                            href={SCAN}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-2 font-mono text-[12px] text-[var(--accent)] transition hover:underline"
+                        <span className="text-[13px] text-[var(--text-dim)]">
+                            Want the contract address, or a walk through how settlement works?
+                        </span>
+                        <Link
+                            href="/contact"
+                            className="flex items-center gap-1.5 text-[13px] text-[var(--accent)] transition hover:gap-2"
                         >
-                            {addr(DISPERSE)} <ArrowUpRight size={12} />
-                        </a>
+                            Get in touch <ArrowUpRight size={13} />
+                        </Link>
                     </div>
                 </Reveal>
             </div>
@@ -610,15 +667,19 @@ export function Proof() {
 const FAQ = [
     {
         q: "Where does the money actually sit?",
-        a: "In your wallet, until the moment it lands in your contractors'. GlobePay is non-custodial — we orchestrate the transfer and store the records, but we never hold a balance and never hold a key. There is no GlobePay account with your money in it.",
+        a: "In your wallet, until the moment it lands in your freelancers'. GlobePay is non-custodial — we orchestrate the transfer and store the records, but we never hold a balance and never hold a key. There is no GlobePay account with your money in it.",
     },
     {
-        q: "What happens if one payment fails?",
-        a: "Nothing happens. A payment run is a single transaction, so if any transfer in it would fail, the entire run reverts and no one is paid. That is deliberate — a half-completed payroll is far worse to unpick than one you simply retry.",
+        q: "Could one bad payment hold up the other ninety-nine?",
+        a: "In practice, no — because there is almost nothing a single payment can fail at on its own. Every wallet address is checked before a run is even prepared, so a mistyped one never reaches the batch. After that, the only realistic reasons a stablecoin payment fails are not enough balance or not enough approved, and both of those apply to the entire run rather than to one person. So the case where ninety-nine are held up by one is a case that essentially cannot arise.",
     },
     {
-        q: "Does GlobePay handle tax?",
-        a: "No, and deliberately so. Contractors are paid the full invoiced amount, and tax on that income is between them and their own authority — a company paying someone abroad usually has no registration in that country and no way to remit anything on their behalf. What GlobePay does is keep the record: who was paid, how much, on what date, at what exchange rate, with a transaction anyone can verify. That is what your accountant needs.",
+        q: "What if a run does fail?",
+        a: "Everyone stays unpaid and you retry, rather than discovering later that sixty-three people were paid and thirty-seven were not. That is the trade we chose deliberately: an all-or-nothing run is one you can simply run again, where a partly-completed one has to be reconciled by hand, person by person, before you dare touch it.",
+    },
+    {
+        q: "What stops a typo in a wallet address?",
+        a: "Wallet addresses carry a built-in checksum, and GlobePay verifies it before an address is ever saved or paid — a single wrong character fails the check and is rejected on the spot. The AI fills in names, addresses and amounts from whatever you send us, and that check sits underneath it, so an extraction slip cannot become a payment to nowhere. What no system can catch is an address that is valid but belongs to the wrong person, which is why you confirm every run before signing.",
     },
     {
         q: "Does the AI decide any of the numbers?",
@@ -626,7 +687,7 @@ const FAQ = [
     },
     {
         q: "Is this on mainnet?",
-        a: "Not yet. GlobePay runs on Base Sepolia, a testnet, using test USDC — so you can exercise the entire flow, including real signatures and real on-chain proof, without moving real money.",
+        a: "Not yet. GlobePay runs on Base Sepolia, a testnet, using test USDC — so you can exercise the entire flow, including real signatures and real on-chain proof, without moving real money. Production runs on Base mainnet, which is Ethereum, settling to it while keeping fees low enough that paying a hundred people stays worth doing.",
     },
 ];
 
@@ -658,7 +719,7 @@ export function Closer() {
                                 The Payroll Rail<br />for Borderless Teams
                             </h2>
                             <p className="mt-4 max-w-md text-[15px] leading-relaxed text-white/75">
-                                Connect a wallet, add your contractors, and run payroll in a single
+                                Connect a wallet, add your freelancers, and run payroll in a single
                                 signature. Nothing to install, no funds to deposit.
                             </p>
                             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
