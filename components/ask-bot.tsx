@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ReactMarkdown from "react-markdown";
-import { Send, Loader2, Sparkles, AlertCircle, ChevronRight, ArrowUpRight, FileText, History, Plus, Trash2 } from "lucide-react";
+import { Send, Loader2, Sparkles, AlertCircle, Check, ChevronRight, ArrowUpRight, FileText, History, Plus, Trash2 } from "lucide-react";
 import {
     listConversations, saveConversation, deleteConversation, clearConversations,
     titleFrom, dayLabel, RETENTION_HOURS, type Conversation,
@@ -46,13 +46,6 @@ type Turn = {
 // Rotated while waiting. One unchanging string makes a slow reply feel stuck;
 // text that moves reads as work happening. Each line also says something true
 // about the step it's on, rather than being noise for its own sake.
-const WORKING = [
-    "Reading your question…",
-    "Finding the payments…",
-    "Adding them up…",
-    "Checking the figures…",
-];
-
 const clock = (ms: number) =>
     new Date(ms).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
@@ -113,6 +106,45 @@ function Figures({ figures }: { figures: Figure[] }) {
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+/**
+ * What the assistant is doing, while it does it.
+ *
+ * These lines are streamed from the agent as each tool call fires, so they are
+ * a record of real work rather than captions on a timer. That distinction is
+ * the whole point: a rotating "Adding them up…" that plays whether or not
+ * anything is being added is theatre, and people learn to distrust it. Watching
+ * it decide to check which countries exist, then add up two different
+ * questions, is the part that reads as intelligence.
+ *
+ * Completed steps stay visible and dim; the current one keeps the pulse.
+ */
+function Thinking({ steps }: { steps: string[] }) {
+    return (
+        <div className="flex items-start gap-2.5">
+            <span className="relative mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
+                <Sparkles size={12} />
+                <span className="absolute inset-0 animate-ping rounded-lg bg-[var(--accent)] opacity-15" />
+            </span>
+            <div className="min-w-0 space-y-1 pt-0.5">
+                {(steps.length ? steps : ["Reading your question"]).map((s, i, all) => {
+                    const current = i === all.length - 1;
+                    return (
+                        <div
+                            key={`${s}-${i}`}
+                            className={`flex items-center gap-2 text-[12px] transition-colors ${current ? "text-[var(--text-dim)]" : "text-[var(--text-faint)]"}`}
+                        >
+                            {current
+                                ? <Loader2 size={11} className="shrink-0 animate-spin text-[var(--accent)]" />
+                                : <Check size={11} className="shrink-0 text-[var(--ok)]" />}
+                            <span className="truncate">{s}</span>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 }
@@ -241,7 +273,8 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
     const [q, setQ] = useState("");
     const [busy, setBusy] = useState(false);
     const [suggestions, setSuggestions] = useState<string[] | null>(null);
-    const [workingIdx, setWorkingIdx] = useState(0);
+    // The agent's real steps, streamed as it works.
+    const [steps, setSteps] = useState<string[]>([]);
     const [showHistory, setShowHistory] = useState(false);
     const [history, setHistory] = useState<Conversation[]>([]);
     // Deleting one conversation is cheap to redo; deleting all of them isn't,
@@ -254,15 +287,6 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
     // the path rather than passed in, so the floating widget works on any page.
     const pathname = usePathname();
     const paymentsHref = pathname?.startsWith("/admin") ? "/admin/payments" : "/portal/payments";
-
-    // Step the waiting message on while a request is in flight. The reset back
-    // to the first line happens where the request starts, not here — resetting
-    // in the effect body would be a synchronous setState on every toggle.
-    useEffect(() => {
-        if (!busy) return;
-        const t = setInterval(() => setWorkingIdx((i) => (i + 1) % WORKING.length), 1400);
-        return () => clearInterval(t);
-    }, [busy]);
 
     useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [turns, busy]);
 
@@ -316,7 +340,7 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
         if (!text || busy) return;
         setQ("");
         setTurns((t) => [...t, { q: text, at: Date.now() }]);
-        setWorkingIdx(0);
+        setSteps([]);
         setBusy(true);
         try {
             const r = await fetch("/api/ask", {
@@ -328,25 +352,52 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
                     history: turns.filter((t) => t.a).map((t) => ({ q: t.q, a: t.a })),
                 }),
             });
-            const j = await r.json();
+
+            // The route streams newline-delimited JSON: a `step` per tool call
+            // as it happens, then one `done`. Reading it as it arrives is what
+            // lets the UI narrate the real work instead of guessing at it.
+            let j: Record<string, unknown> = {};
+            if (r.body && r.headers.get("content-type")?.includes("ndjson")) {
+                const reader = r.body.getReader();
+                const dec = new TextDecoder();
+                let buf = "";
+                for (; ;) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buf += dec.decode(value, { stream: true });
+                    const lines = buf.split("\n");
+                    buf = lines.pop() ?? "";
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+                        const ev = JSON.parse(line);
+                        if (ev.type === "step") setSteps((s) => [...s, ev.text]);
+                        else if (ev.type === "error") j = { error: ev.error };
+                        else if (ev.type === "done") j = ev;
+                    }
+                }
+            } else {
+                j = await r.json();
+            }
+
+            const ok = r.ok && !j.error;
             setTurns((t) => {
                 const next = [...t];
                 const last = next[next.length - 1];
                 last.answeredAt = Date.now();
-                if (!r.ok) last.error = j?.error || "Couldn't answer that";
+                if (!ok) last.error = (j.error as string) || "Couldn't answer that";
                 else {
-                    last.a = j.answer;
+                    last.a = j.answer as string;
                     // What it actually queried, so a surprising answer can be
                     // traced to the question behind it rather than argued with.
-                    const labels = (j.calls ?? [])
-                        .filter((c: { name: string }) => c.name === "query_payments")
-                        .map((c: { label?: string }) => c.label).filter(Boolean);
+                    const labels = ((j.calls ?? []) as { name: string; label?: string }[])
+                        .filter((c) => c.name === "query_payments")
+                        .map((c) => c.label).filter(Boolean);
                     last.scope = [
                         `${j.rows} record${j.rows === 1 ? "" : "s"}`,
                         labels.length ? labels.join(" · ") : null,
                     ].filter(Boolean).join(" · ");
-                    last.evidence = j.evidence ?? [];
-                    last.figures = j.figures ?? [];
+                    last.evidence = (j.evidence ?? []) as Evidence[];
+                    last.figures = (j.figures ?? []) as Figure[];
                     last.truncated = !!j.truncated;
                 }
                 return next;
@@ -518,9 +569,7 @@ export default function AskBot({ clientId, height = "min(66vh, 620px)", bare = f
                                 )}
                             </div>
                         ) : (
-                            <div className="inline-flex items-center gap-2 text-[12px] text-[var(--text-dim)]">
-                                <Loader2 size={13} className="animate-spin" /> {WORKING[workingIdx]}
-                            </div>
+                            <Thinking steps={steps} />
                         )}
                     </div>
                 ))}

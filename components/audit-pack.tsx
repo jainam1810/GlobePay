@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import type { SavedRecord } from "@/lib/records";
 import Flag from "@/components/flag";
+import { Select as UiSelect, toOptions } from "@/components/ui/select";
 import { toCsv, downloadCsv, exportName } from "@/lib/csv";
 
 const ALL = "__all__";
@@ -420,7 +421,9 @@ function Row({ r }: { r: SavedRecord }) {
                         marked so print can drop them — on paper every column is
                         shown, and these would print the same value twice. */}
                     <div className="audit-inline text-[11px] text-[var(--text-faint)] truncate lg:hidden">
-                        <Flag country={r.tax_country} className="audit-flag mr-1.5" />{r.tax_country ?? "—"}
+                        {r.tax_country
+                            ? <><Flag country={r.tax_country} label={false} className="audit-flag mr-1.5" />{r.tax_country}</>
+                            : "—"}
                     </div>
                     <div className="audit-inline xl:hidden flex items-center gap-1.5">
                         <span className="font-mono text-[11px] text-[var(--text-faint)] truncate">{shortAddr(r.payee_wallet)}</span>
@@ -428,7 +431,11 @@ function Row({ r }: { r: SavedRecord }) {
                     </div>
                 </Td>
                 <Td className="hidden lg:table-cell text-[12px] text-[var(--text-dim)] whitespace-nowrap truncate">
-                    <Flag country={r.tax_country} className="audit-flag mr-1.5" />{r.tax_country ?? "—"}
+                    {/* No flag placeholder when there is no country — an empty grey
+                        box beside a dash reads as a broken image, not as absence. */}
+                    {r.tax_country
+                        ? <><Flag country={r.tax_country} label={false} className="audit-flag mr-1.5" />{r.tax_country}</>
+                        : "—"}
                 </Td>
                 <Td className="hidden md:table-cell font-mono text-[11px] text-[var(--text-dim)] truncate">
                     {r.invoice_number || <span className="text-[var(--text-faint)]">—</span>}
@@ -541,10 +548,8 @@ function Stat({ label, value, sub, accent }: { label: string; value: string; sub
 function Select({ value, onChange, options, label }: {
     value: string; onChange: (v: string) => void; options: [string, string][]; label: string;
 }) {
-    return (
-        <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}
-            className="text-[13px] px-2.5 py-2 rounded-lg bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-dim)] focus:outline-none focus:border-[var(--accent)] transition">
-            {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
-    );
+    // Delegates to the shared dropdown so every filter in the product opens the
+    // same panel. Kept as a local wrapper because the call sites already pass
+    // [value, label] tuples.
+    return <UiSelect value={value} onChange={onChange} options={toOptions(options)} label={label} className="py-2" />;
 }

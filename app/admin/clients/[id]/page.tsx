@@ -231,7 +231,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                             <div className="font-medium truncate text-sm">{c.name}</div>
                                             <div className="text-xs text-[var(--text-dim)] truncate">{c.role || "—"}</div>
                                         </div>
-                                        <div className="hidden sm:flex items-center gap-1.5 text-xs text-[var(--text-dim)] w-24"><Flag country={c.country} />{c.country}</div>
+                                        <div className="hidden sm:flex items-center gap-1.5 text-xs text-[var(--text-dim)] w-24"><Flag country={c.country} label={false} />{c.country}</div>
                                         <div className="hidden lg:flex items-center gap-1.5 w-48">
                                             <span className="font-mono text-[10px] text-[var(--text-faint)]">{truncate(c.wallet)}</span>
                                             <CopyButton value={c.wallet} title={`Copy ${c.name}'s wallet address`} />

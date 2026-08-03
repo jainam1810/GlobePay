@@ -24,7 +24,12 @@ export default function PortalShell({ children, companyName, homeCountry, email 
 
     return (
         <div className="relative z-[1] flex min-h-screen">
-            <aside className="hidden md:flex w-[252px] shrink-0 flex-col justify-between border-r border-[var(--border)] px-4 py-6">
+            {/* Sticky, with its own height, so the nav stays put while the page
+                scrolls past it. overflow-y-auto shows a scrollbar only when the
+                nav is genuinely taller than the viewport, which at this size it
+                never is — previously the aside simply stretched to match whatever
+                was beside it and scrolled away with the content. */}
+            <aside className="sticky top-0 hidden h-screen w-[252px] shrink-0 flex-col justify-between overflow-y-auto border-r border-[var(--border)] px-4 py-6 md:flex">
                 <div>
                     <Link href="/portal" className="flex items-center gap-2.5 px-2 mb-2">
                         <div className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--accent)] text-[var(--accent-ink)] font-display font-bold text-lg shadow-[0_0_24px_var(--accent-glow)]">G</div>

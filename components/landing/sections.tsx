@@ -185,7 +185,7 @@ export function GlobalPayroll() {
                                         className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.10)] bg-[rgba(255,255,255,0.05)] px-4 py-3.5 backdrop-blur-md"
                                     >
                                         <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-[rgba(255,255,255,0.08)]">
-                                            <Flag country={p.country} size={22} />
+                                            <Flag country={p.country} label={false} size={22} />
                                         </span>
                                         <div className="min-w-0 flex-1">
                                             <div className="truncate text-[14px] font-medium">

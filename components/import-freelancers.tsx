@@ -110,7 +110,7 @@ export default function ImportFreelancers({ clientId, onImported }: { clientId: 
                                     : <AlertCircle size={14} className="text-[var(--danger)] shrink-0" />}
                                 <div className="min-w-0 flex-1">
                                     <span className="font-medium">{r.name || "?"}</span>
-                                    <span className="ml-2 text-xs text-[var(--text-dim)]"><Flag country={r.country} /> {r.country || "?"}{r.role ? ` · ${r.role}` : ""}</span>
+                                    <span className="ml-2 text-xs text-[var(--text-dim)]"><Flag country={r.country} label={false} /> {r.country || "?"}{r.role ? ` · ${r.role}` : ""}</span>
                                     {!r.valid && <div className="text-[11px] text-[var(--danger)] mt-0.5">{r.problems.join(" · ")}</div>}
                                     {r.notes && <div className="text-[11px] text-[var(--warn)] mt-0.5">{r.notes}</div>}
                                 </div>
