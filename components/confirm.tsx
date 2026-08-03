@@ -16,6 +16,7 @@ import { Loader2 } from "lucide-react";
 
 export default function Confirm({
     open, onOpenChange, title, body, confirmLabel = "Confirm", danger = false, onConfirm,
+    extraAction,
 }: {
     open: boolean;
     onOpenChange: (v: boolean) => void;
@@ -25,12 +26,26 @@ export default function Confirm({
     confirmLabel?: string;
     danger?: boolean;
     onConfirm: () => void | Promise<void>;
+    /**
+     * A second, stronger outcome alongside the first — "delete for everyone"
+     * beside "delete for me". Only for cases where the two are genuinely
+     * different actions rather than a yes/no; a dialog with three ways to say
+     * yes is a dialog nobody reads.
+     */
+    extraAction?: { label: string; onClick: () => void | Promise<void>; danger?: boolean };
 }) {
     const [busy, setBusy] = useState(false);
 
     async function go() {
         setBusy(true);
         try { await onConfirm(); onOpenChange(false); }
+        finally { setBusy(false); }
+    }
+
+    async function goExtra() {
+        if (!extraAction) return;
+        setBusy(true);
+        try { await extraAction.onClick(); onOpenChange(false); }
         finally { setBusy(false); }
     }
 
@@ -44,7 +59,7 @@ export default function Confirm({
                         <div className="mt-2 text-[13px] leading-relaxed text-[var(--text-dim)]">{body}</div>
                     </AlertDialog.Description>
 
-                    <div className="mt-5 flex items-center justify-end gap-2">
+                    <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
                         {/* Cancel first and visually quieter: the safe option should be
                             the easy one to hit, and the destructive one deliberate. */}
                         <AlertDialog.Cancel asChild>
@@ -60,6 +75,16 @@ export default function Confirm({
                             {busy && <Loader2 size={14} className="animate-spin" />}
                             {confirmLabel}
                         </button>
+                        {/* Last, and the strongest — the furthest-reaching outcome
+                            sits at the end of the row rather than under the thumb. */}
+                        {extraAction && (
+                            <button onClick={goExtra} disabled={busy}
+                                className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium transition disabled:opacity-50 ${extraAction.danger
+                                    ? "bg-[var(--danger)] text-white hover:brightness-110"
+                                    : "bg-[var(--accent)] text-[var(--accent-ink)] hover:brightness-110"}`}>
+                                {extraAction.label}
+                            </button>
+                        )}
                     </div>
                 </AlertDialog.Content>
             </AlertDialog.Portal>
