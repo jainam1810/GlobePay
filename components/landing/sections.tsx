@@ -19,6 +19,7 @@ import { Reveal, StaggerGroup, StaggerItem, Parallax, CountUp, Marquee, Tilt } f
 import { Button } from "@/components/ui/kit";
 import { Accordion } from "@/components/ui/overlays";
 import { IsoArt } from "@/components/landing/iso-art";
+import Flag from "@/components/flag";
 
 // The deployed contract address is deliberately not shown anywhere in the UI.
 // It is public on chain for anyone who goes looking, but putting it on the
@@ -143,9 +144,9 @@ export function Hero() {
 // to a real company — no name, wallet or amount from it appears here. The
 // countries are real because they are the three GlobePay actually supports.
 const PAYEES = [
-    { name: "Amara Eze", note: "Backend engineer · Nigeria", flag: "🇳🇬", amount: "2,400.00" },
-    { name: "Lucía Moreno", note: "Product designer · Argentina", flag: "🇦🇷", amount: "1,850.00" },
-    { name: "Miguel Santos", note: "QA engineer · Philippines", flag: "🇵🇭", amount: "1,200.00" },
+    { name: "Amara Eze", role: "Backend engineer", country: "Nigeria", amount: "2,400.00" },
+    { name: "Lucía Moreno", role: "Product designer", country: "Argentina", amount: "1,850.00" },
+    { name: "Miguel Santos", role: "QA engineer", country: "Philippines", amount: "1,200.00" },
 ];
 
 export function GlobalPayroll() {
@@ -183,14 +184,14 @@ export function GlobalPayroll() {
                                         key={p.name}
                                         className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.10)] bg-[rgba(255,255,255,0.05)] px-4 py-3.5 backdrop-blur-md"
                                     >
-                                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[rgba(255,255,255,0.08)] text-[16px]">
-                                            {p.flag}
+                                        <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-[rgba(255,255,255,0.08)]">
+                                            <Flag country={p.country} size={22} />
                                         </span>
                                         <div className="min-w-0 flex-1">
                                             <div className="truncate text-[14px] font-medium">
                                                 {p.name} <span className="font-normal text-[var(--text-faint)]">paid</span>
                                             </div>
-                                            <div className="truncate text-[12px] text-[var(--text-faint)]">{p.note}</div>
+                                            <div className="truncate text-[12px] text-[var(--text-faint)]">{p.role} · {p.country}</div>
                                         </div>
                                         <span className="font-mono text-[14px] text-[var(--accent-hi)]">${p.amount}</span>
                                     </div>

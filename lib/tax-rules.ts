@@ -5,7 +5,6 @@
 
 export type TaxRule = {
     country: string;
-    flag: string;
     currencyLocal: string;
     withholdingRate: number;        // headline resident professional-services rate
     withholdingLabel: string;
@@ -21,7 +20,6 @@ export type TaxRule = {
 export const taxRules: Record<string, TaxRule> = {
     Nigeria: {
         country: "Nigeria",
-        flag: "🇳🇬",
         currencyLocal: "NGN",
         withholdingRate: 0.05,
         withholdingLabel: "5% WHT (professional services)",
@@ -41,7 +39,6 @@ export const taxRules: Record<string, TaxRule> = {
     },
     Argentina: {
         country: "Argentina",
-        flag: "🇦🇷",
         currencyLocal: "ARS",
         withholdingRate: 0.05,
         withholdingLabel: "5%+ WHT (RG 830 scale, registered)",
@@ -61,7 +58,6 @@ export const taxRules: Record<string, TaxRule> = {
     },
     Philippines: {
         country: "Philippines",
-        flag: "🇵🇭",
         currencyLocal: "PHP",
         withholdingRate: 0.05,
         withholdingLabel: "5% EWT (≤ ₱3M, sworn declaration)",
