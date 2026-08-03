@@ -18,7 +18,6 @@ import {
     ArrowLeft, Sheet, Building2, Copy, Check,
 } from "lucide-react";
 import type { SavedRecord } from "@/lib/records";
-import { getTaxRule } from "@/lib/tax-rules";
 import { flagFor } from "@/lib/contractor-types";
 import { toCsv, downloadCsv, exportName } from "@/lib/csv";
 
@@ -179,7 +178,6 @@ function ClientIndex({ records, onOpen }: { records: SavedRecord[]; onOpen: (c: 
 function Pack({ records, scope, onBack }: { records: SavedRecord[]; scope?: string; onBack?: () => void }) {
     const [q, setQ] = useState("");
     const [country, setCountry] = useState(ALL);
-    const [treatment, setTreatment] = useState(ALL);
     const [year, setYear] = useState(ALL);
     const [sort, setSort] = useState<SortKey>("date_desc");
 
@@ -192,12 +190,11 @@ function Pack({ records, scope, onBack }: { records: SavedRecord[]; scope?: stri
         const needle = q.trim().toLowerCase();
         const out = records.filter((r) => {
             if (country !== ALL && r.tax_country !== country) return false;
-            if (treatment !== ALL && (r.tax_treatment ?? "") !== treatment) return false;
             if (year !== ALL && String(new Date(whenOf(r)).getFullYear()) !== year) return false;
             if (!needle) return true;
-            // Searchable by whatever someone has to hand: a name, a tax ID from a
-            // letter, an invoice number, a wallet or a hash off a receipt.
-            return [r.payee_name, r.contractor_tax_id, r.invoice_number, r.tx_hash, r.payee_wallet, r.tax_country, r.description]
+            // Searchable by whatever someone has to hand: a name, an invoice
+            // number, a wallet, or a hash off a receipt.
+            return [r.payee_name, r.invoice_number, r.tx_hash, r.payee_wallet, r.tax_country, r.description]
                 .some((v) => v?.toLowerCase().includes(needle));
         });
         const by: Record<SortKey, (a: SavedRecord, b: SavedRecord) => number> = {
@@ -208,23 +205,21 @@ function Pack({ records, scope, onBack }: { records: SavedRecord[]; scope?: stri
             name_asc: (a, b) => (a.payee_name ?? "").localeCompare(b.payee_name ?? ""),
         };
         return [...out].sort(by[sort]);
-    }, [records, q, country, treatment, year, sort]);
+    }, [records, q, country, year, sort]);
 
     const totals = useMemo(() => ({
         gross: rows.reduce((s, r) => s + Number(r.amount || 0), 0),
-        withheld: rows.reduce((s, r) => s + Number(r.withheld_amount || 0), 0),
         people: new Set(rows.map((r) => r.payee_name)).size,
         countries: new Set(rows.map((r) => r.tax_country).filter(Boolean)).size,
     }), [rows]);
 
     const active = [
         country !== ALL && { k: "country", label: country, clear: () => setCountry(ALL) },
-        treatment !== ALL && { k: "treatment", label: treatment === "cross_border" ? "Cross-border" : "Domestic", clear: () => setTreatment(ALL) },
         year !== ALL && { k: "year", label: year, clear: () => setYear(ALL) },
         q.trim() && { k: "q", label: `“${q.trim()}”`, clear: () => setQ("") },
     ].filter(Boolean) as { k: string; label: string; clear: () => void }[];
     const filtered = active.length > 0;
-    const clearAll = () => { setQ(""); setCountry(ALL); setTreatment(ALL); setYear(ALL); };
+    const clearAll = () => { setQ(""); setCountry(ALL); setYear(ALL); };
 
     const title = scope ?? "Audit pack";
 
@@ -232,25 +227,17 @@ function Pack({ records, scope, onBack }: { records: SavedRecord[]; scope?: stri
         // Every column, including the ones the screen folds away — a spreadsheet
         // has no width limit and this is the file people reconcile against.
         const csv = toCsv(
-            ["Date paid", "Contractor", "Country", "Wallet address", "Tax ID", "Treatment",
-                "Gross (USD)", "Withholding rate", "Withheld (USD)", "Net (USD)",
+            ["Date paid", "Contractor", "Country", "Wallet address", "Amount (USD)",
                 "Local amount", "Local currency", "FX rate", "FX pinned", "Invoice", "Description",
                 "Transaction hash", "Paid from"],
-            rows.map((r) => {
-                const hasTax = r.withholding_rate !== null && r.withheld_amount !== null;
-                return [
-                    new Date(whenOf(r)).toISOString().slice(0, 10),
-                    r.payee_name, r.tax_country, r.payee_wallet, r.contractor_tax_id,
-                    r.tax_treatment === "cross_border" ? "Cross-border" : hasTax ? "Domestic" : "",
-                    Number(r.amount ?? 0).toFixed(2),
-                    hasTax ? `${((r.withholding_rate ?? 0) * 100).toFixed(2)}%` : "",
-                    hasTax ? Number(r.withheld_amount ?? 0).toFixed(2) : "0.00",
-                    Number(hasTax ? r.net_amount ?? 0 : r.amount ?? 0).toFixed(2),
-                    r.local_amount !== null ? Number(r.local_amount).toFixed(2) : "",
-                    r.local_currency, r.fx_rate ?? "", r.fx_pinned_at ?? "",
-                    r.invoice_number, r.description, r.tx_hash, r.company_country,
-                ];
-            }),
+            rows.map((r) => [
+                new Date(whenOf(r)).toISOString().slice(0, 10),
+                r.payee_name, r.tax_country, r.payee_wallet,
+                Number(r.amount ?? 0).toFixed(2),
+                r.local_amount !== null ? Number(r.local_amount).toFixed(2) : "",
+                r.local_currency, r.fx_rate ?? "", r.fx_pinned_at ?? "",
+                r.invoice_number, r.description, r.tx_hash, r.company_country,
+            ]),
         );
         downloadCsv(exportName(title, "csv"), csv);
     }
@@ -270,7 +257,7 @@ function Pack({ records, scope, onBack }: { records: SavedRecord[]; scope?: stri
                         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]" />
                         <input
                             value={q} onChange={(e) => setQ(e.target.value)}
-                            placeholder="Search name, tax ID, invoice, wallet or transaction hash"
+                            placeholder="Search name, country, invoice, wallet or transaction hash"
                             aria-label="Search payments"
                             className="w-full pl-9 pr-3 py-2 text-sm bg-[var(--surface-2)] border border-[var(--border)] rounded-lg focus:outline-none focus:border-[var(--accent)] transition placeholder:text-[var(--text-faint)]"
                         />
@@ -280,8 +267,6 @@ function Pack({ records, scope, onBack }: { records: SavedRecord[]; scope?: stri
                             options={[[ALL, "All years"], ...years.map((y) => [String(y), String(y)] as [string, string])]} />
                         <Select value={country} onChange={setCountry} label="Country"
                             options={[[ALL, "All countries"], ...countries.map((c) => [c, c] as [string, string])]} />
-                        <Select value={treatment} onChange={setTreatment} label="Treatment"
-                            options={[[ALL, "All treatments"], ["domestic", "Domestic"], ["cross_border", "Cross-border"]]} />
                         <Select value={sort} onChange={(v) => setSort(v as SortKey)} label="Sort"
                             options={[["date_desc", "Newest first"], ["date_asc", "Oldest first"], ["amount_desc", "Largest first"], ["amount_asc", "Smallest first"], ["name_asc", "Name A–Z"]]} />
                         <button onClick={exportCsv} disabled={rows.length === 0}
@@ -342,17 +327,12 @@ function Pack({ records, scope, onBack }: { records: SavedRecord[]; scope?: stri
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[var(--border)] border-b border-[var(--border)]">
-                    <Stat label="Gross paid" value={`$${money(totals.gross)}`} accent />
-                    <Stat label="Tax withheld" value={`$${money(totals.withheld)}`} />
-                    <Stat label="Net to contractors" value={`$${money(totals.gross - totals.withheld)}`} />
+                <div className="grid grid-cols-3 gap-px bg-[var(--border)] border-b border-[var(--border)]">
+                    <Stat label="Total paid" value={`$${money(totals.gross)}`} accent />
+                    <Stat label="Payments" value={`${rows.length}`} />
                     <Stat label="Contractors" value={`${totals.people}`} sub={`${totals.countries} countr${totals.countries === 1 ? "y" : "ies"}`} />
                 </div>
 
-                {/* Withholding only exists when payer and contractor share a
-                    country, so a book of purely cross-border payments has none —
-                    and then Gross, Withheld and Net are three columns saying the
-                    same number. Show the split only when it splits. */}
                 {rows.length === 0 ? (
                     <div className="p-12 text-center">
                         <div className="text-[15px] font-medium">No payments match these filters</div>
@@ -360,14 +340,14 @@ function Pack({ records, scope, onBack }: { records: SavedRecord[]; scope?: stri
                         <button onClick={clearAll} className="no-print mt-4 text-sm text-[var(--accent)] underline underline-offset-2">Clear all filters</button>
                     </div>
                 ) : (
-                    <Table rows={rows} showTax={totals.withheld > 0} />
+                    <Table rows={rows} />
                 )}
 
                 <div className="px-5 md:px-7 py-4 border-t border-[var(--border)] text-[11px] text-[var(--text-faint)] leading-relaxed">
                     Each payment is anchored to a public blockchain transaction; the proof reference is that transaction&rsquo;s
                     hash, verifiable by anyone on Basescan without trusting GlobePay or the payer. Exchange rates are those
-                    recorded on the day of payment and are never recalculated. Withholding applies where payer and contractor
-                    are in the same country; cross-border payments are made in full and the contractor reports locally.
+                    recorded on the day of payment and are never recalculated. Contractors are paid the full invoiced amount;
+                    any tax on that income is a matter between the contractor and their own authority.
                 </div>
             </div>
         </div>
@@ -379,25 +359,23 @@ function Pack({ records, scope, onBack }: { records: SavedRecord[]; scope?: stri
 // sideways scrolling, so secondary columns fold away as width runs out and the
 // drill-down carries them instead. Nothing is ever only available by scrolling.
 
-function Table({ rows, showTax }: { rows: SavedRecord[]; showTax: boolean }) {
+function Table({ rows }: { rows: SavedRecord[] }) {
     return (
         <table className="w-full table-fixed border-collapse text-left">
             <thead className="audit-thead sticky top-0 z-10 bg-[var(--surface-2)]">
                 <tr className="text-[11px] uppercase tracking-wider text-[var(--text-faint)]">
                     <Th className="w-[84px]">Date</Th>
                     <Th>Contractor</Th>
+                    <Th className="hidden lg:table-cell w-[124px]">Country</Th>
                     <Th className="hidden md:table-cell w-[124px]">Invoice</Th>
                     <Th className="hidden xl:table-cell w-[136px]">Wallet</Th>
-                    <Th className="hidden lg:table-cell w-[110px]">Treatment</Th>
-                    <Th className="w-[100px] text-right">{showTax ? "Gross" : "Amount"}</Th>
-                    {showTax && <Th className="hidden sm:table-cell w-[96px] text-right">Withheld</Th>}
-                    {showTax && <Th className="w-[96px] text-right">Net</Th>}
+                    <Th className="w-[110px] text-right">Amount</Th>
                     <Th className="hidden sm:table-cell w-[100px]">Proof</Th>
                     <Th className="w-[34px] no-print" />
                 </tr>
             </thead>
             <tbody>
-                {rows.map((r) => <Row key={r.id} r={r} showTax={showTax} />)}
+                {rows.map((r) => <Row key={r.id} r={r} />)}
             </tbody>
         </table>
     );
@@ -426,13 +404,9 @@ function Th({ children, className = "" }: { children?: React.ReactNode; classNam
     return <th scope="col" className={`px-3 py-2.5 font-normal border-b border-[var(--border)] ${className}`}>{children}</th>;
 }
 
-function Row({ r, showTax }: { r: SavedRecord; showTax: boolean }) {
+function Row({ r }: { r: SavedRecord }) {
     const [open, setOpen] = useState(false);
     const when = new Date(whenOf(r));
-    const hasTax = r.withholding_rate !== null && r.withheld_amount !== null;
-    const crossBorder = r.tax_treatment === "cross_border";
-    const net = hasTax ? Number(r.net_amount ?? 0) : Number(r.amount ?? 0);
-    const rule = r.tax_country ? getTaxRule(r.tax_country) : null;
 
     return (
         <>
@@ -442,16 +416,18 @@ function Row({ r, showTax }: { r: SavedRecord; showTax: boolean }) {
                 </Td>
                 <Td>
                     <div className="text-[13px] font-medium truncate">{r.payee_name}</div>
-                    <div className="text-[11px] text-[var(--text-faint)] truncate">
+                    {/* Country rides under the name below lg, and the wallet below
+                        xl, so neither is lost when its column folds away. */}
+                    <div className="text-[11px] text-[var(--text-faint)] truncate lg:hidden">
                         <span className="mr-1">{flagFor(r.tax_country ?? "")}</span>{r.tax_country ?? "—"}
-                        {r.contractor_tax_id && <span className="font-mono"> · {r.contractor_tax_id}</span>}
                     </div>
-                    {/* Wallet rides under the name below xl, and prints there too,
-                        so it is never lost when the column folds away. */}
                     <div className="audit-wallet xl:hidden flex items-center gap-1.5">
                         <span className="font-mono text-[11px] text-[var(--text-faint)] truncate">{shortAddr(r.payee_wallet)}</span>
                         {r.payee_wallet && <CopyButton value={r.payee_wallet} title="Copy full wallet address" />}
                     </div>
+                </Td>
+                <Td className="hidden lg:table-cell text-[12px] text-[var(--text-dim)] whitespace-nowrap truncate">
+                    <span className="mr-1.5">{flagFor(r.tax_country ?? "")}</span>{r.tax_country ?? "—"}
                 </Td>
                 <Td className="hidden md:table-cell font-mono text-[11px] text-[var(--text-dim)] truncate">
                     {r.invoice_number || <span className="text-[var(--text-faint)]">—</span>}
@@ -462,21 +438,9 @@ function Row({ r, showTax }: { r: SavedRecord; showTax: boolean }) {
                         {r.payee_wallet && <CopyButton value={r.payee_wallet} title="Copy full wallet address" />}
                     </div>
                 </Td>
-                <Td className="hidden lg:table-cell text-[12px] text-[var(--text-dim)] whitespace-nowrap">
-                    <span className={`dot ${crossBorder ? "dot-ok" : hasTax ? "dot-pending" : "dot-failed"} mr-1.5`} />
-                    {crossBorder ? "Cross-border" : hasTax ? "Domestic" : "—"}
-                </Td>
-                <Td className={`font-mono text-[13px] text-right whitespace-nowrap ${showTax ? "" : "font-medium"}`}>
+                <Td className="font-mono text-[13px] font-medium text-right whitespace-nowrap">
                     ${money(r.amount)}
                 </Td>
-                {showTax && (
-                    <Td className="hidden sm:table-cell font-mono text-[13px] text-right whitespace-nowrap text-[var(--text-dim)]">
-                        {hasTax ? `−$${money(r.withheld_amount)}` : "—"}
-                    </Td>
-                )}
-                {showTax && (
-                    <Td className="font-mono text-[13px] text-right whitespace-nowrap font-medium">${money(net)}</Td>
-                )}
                 <Td className="hidden sm:table-cell whitespace-nowrap">
                     {r.tx_hash ? (
                         <a href={`https://sepolia.basescan.org/tx/${r.tx_hash}`} target="_blank" rel="noreferrer"
@@ -498,7 +462,7 @@ function Row({ r, showTax }: { r: SavedRecord; showTax: boolean }) {
                 they've found the row they care about. */}
             {open && (
                 <tr className="audit-detail bg-[var(--surface-2)] border-b border-[var(--border)]">
-                    <td colSpan={showTax ? 10 : 8} className="px-3 md:px-4 py-4">
+                    <td colSpan={8} className="px-3 md:px-4 py-4">
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                             <div>
                                 <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)] mb-1">Wallet paid</div>
@@ -507,12 +471,10 @@ function Row({ r, showTax }: { r: SavedRecord; showTax: boolean }) {
                                     {r.payee_wallet && <CopyButton value={r.payee_wallet} title="Copy full wallet address" />}
                                 </div>
                             </div>
+                            <Detail label="Country" value={r.tax_country ?? "—"} />
                             <Detail label="Local value"
                                 value={r.local_amount !== null && r.local_currency ? `${money(r.local_amount)} ${r.local_currency}` : "—"}
                                 sub={r.fx_rate ? `rate ${Number(r.fx_rate).toFixed(4)}, pinned ${r.fx_pinned_at ?? "at pay time"}` : undefined} />
-                            <Detail label="Withholding"
-                                value={hasTax ? `${((r.withholding_rate ?? 0) * 100).toFixed(0)}% · $${money(r.withheld_amount)}` : "None"}
-                                sub={crossBorder ? "Payer outside the contractor's country" : rule?.withholdingLabel} />
                             <Detail label="Invoice" value={r.invoice_number || "—"} sub={r.description || undefined} />
                         </div>
                         {r.tx_hash && (

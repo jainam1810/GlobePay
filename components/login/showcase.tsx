@@ -36,9 +36,9 @@ const SLIDES = [
     {
         icon: Receipt,
         title: "The audit trail writes itself",
-        body: "Every invoice links to the transaction that settled it, with FX and withholding frozen at the moment of payment. Export a year in one click.",
+        body: "Every invoice links to the transaction that settled it, with the FX rate frozen at the moment of payment. Export a year in one click.",
         stat: "3",
-        statLabel: "countries with tax handled",
+        statLabel: "countries paid so far",
     },
 ];
 
