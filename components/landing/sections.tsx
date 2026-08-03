@@ -772,10 +772,6 @@ const FAQ = [
         q: "Does the AI decide any of the numbers?",
         a: "No. The AI reads messy invoices and answers questions in plain English. Every amount, rate and total is worked out in code. AI is unreliable at arithmetic, so nothing about your money is left to it.",
     },
-    {
-        q: "Is this live with real money?",
-        a: "Not yet. GlobePay runs on Base Sepolia, a test network, using test USDC — so you can try the whole flow, real signatures and real proof included, without moving real money. Production runs on Base, which is Ethereum, at fees low enough that paying a hundred people is still worth doing.",
-    },
 ];
 
 export function Faq() {
@@ -787,44 +783,6 @@ export function Faq() {
                     <Accordion items={FAQ} />
                 </Reveal>
             </div>
-        </section>
-    );
-}
-
-/* ── 9. closer ──────────────────────────────────────────────────────────── */
-
-export function Closer() {
-    return (
-        <section className="px-5 pb-24 pt-4 sm:px-8 md:pb-28">
-            <Reveal>
-                <div className="panel-accent mx-auto max-w-6xl px-7 py-14 md:px-14 md:py-20">
-                    <div aria-hidden className="grid-bg opacity-40" />
-                    <div className="relative grid items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-                        <div>
-                            <span className="tag !border-white/25 !bg-white/10 !text-white/80">Get started</span>
-                            <h2 className="mt-5 text-[clamp(2rem,4.6vw,3.3rem)] font-medium leading-[1.06] tracking-[-0.035em] text-white">
-                                The Payroll Rail<br />for Borderless Teams
-                            </h2>
-                            <p className="mt-4 max-w-md text-[15px] leading-relaxed text-white/75">
-                                Connect a wallet, add your freelancers, and run payroll in a single
-                                signature. Nothing to install, no funds to deposit.
-                            </p>
-                            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                                <Button asChild variant="ghost" size="lg" className="!border-white/25 !bg-white/10 !text-white hover:!bg-white/20">
-                                    <a href="#how">See how it works</a>
-                                </Button>
-                                <Button asChild size="lg" className="!bg-white !text-[var(--accent-deep)] hover:!bg-white/90">
-                                    <Link href="/login">Open the app <ArrowUpRight size={16} /></Link>
-                                </Button>
-                            </div>
-                        </div>
-
-                        <div className="hidden lg:block">
-                            <IsoArt className="h-[340px] w-full" />
-                        </div>
-                    </div>
-                </div>
-            </Reveal>
         </section>
     );
 }

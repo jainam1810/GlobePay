@@ -9,6 +9,11 @@ export type DbContractor = {
     wallet: string;
     monthly_amount: number;
     tax_id: string | null;
+    // Wallet ownership proof — see lib/wallet-verification.ts. Null until the
+    // freelancer has signed for the address.
+    wallet_verified_at?: string | null;
+    verified_wallet?: string | null;
+    verify_token?: string | null;
 };
 
 // What POST /api/contractors and PATCH /api/contractors/[id] accept off the

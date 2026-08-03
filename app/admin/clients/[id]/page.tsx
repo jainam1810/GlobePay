@@ -1,12 +1,14 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, use } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Plus, AlertCircle, Send, Users, CheckCircle2, XCircle, Clock, ExternalLink, Sparkles, Pencil, Trash2, Copy, Check } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, AlertCircle, Send, Users, CheckCircle2, XCircle, Clock, ExternalLink, Sparkles, Pencil, Trash2, Copy, Check, ShieldQuestion } from "lucide-react";
 import { SUPPORTED_COUNTRIES, COMPANY_COUNTRIES, flagFor, avatarFor, truncate, formatUSD, type DbContractor } from "@/lib/contractor-types";
 import type { DbClient, PayrollRun } from "@/lib/clients";
 import ImportFreelancers from "@/components/import-freelancers";
 import InvoiceIntake, { type InvoiceMeta } from "@/components/invoice-intake";
 import Confirm from "@/components/confirm";
+import WalletBadge from "@/components/wallet-badge";
+import { walletTrust } from "@/lib/wallet-verification";
 
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -229,9 +231,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                             <div className="text-xs text-[var(--text-dim)] truncate">{c.role || "—"}</div>
                                         </div>
                                         <div className="hidden sm:flex items-center gap-1.5 text-xs text-[var(--text-dim)] w-24"><span>{flagFor(c.country)}</span>{c.country}</div>
-                                        <div className="hidden lg:flex items-center gap-1.5 w-36">
+                                        <div className="hidden lg:flex items-center gap-1.5 w-48">
                                             <span className="font-mono text-[10px] text-[var(--text-faint)]">{truncate(c.wallet)}</span>
                                             <CopyButton value={c.wallet} title={`Copy ${c.name}'s wallet address`} />
+                                            <VerifyCell c={c} onError={setError} />
                                         </div>
                                         <AmountCell
                                             c={c}
@@ -603,5 +606,52 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
             {children}
             {hint && <span className="block text-[10px] text-[var(--text-faint)] mt-1">{hint}</span>}
         </label>
+    );
+}
+
+/**
+ * The verification state of one freelancer's wallet, plus the way to fix it.
+ *
+ * Unverified isn't an error — most rosters start that way — so this is a quiet
+ * badge with an action beside it, not a warning. Copying the link rather than
+ * emailing it is deliberate: GlobePay has no relationship with the freelancer,
+ * and the client already has a channel they trust.
+ */
+function VerifyCell({ c, onError }: { c: DbContractor; onError: (m: string) => void }) {
+    const [busy, setBusy] = useState(false);
+    const [link, setLink] = useState<string | null>(null);
+    const verified = walletTrust(c) === "verified";
+
+    async function mint() {
+        setBusy(true);
+        try {
+            const r = await fetch("/api/verify-wallet", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ contractorId: c.id }),
+            });
+            const j = await r.json();
+            if (!r.ok) throw new Error(j?.error || "Couldn't create a link");
+            const url = `${window.location.origin}/verify?token=${j.token}`;
+            setLink(url);
+            await navigator.clipboard.writeText(url).catch(() => { });
+        } catch (e) {
+            onError(e instanceof Error ? e.message : "Couldn't create a link");
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    if (verified) return <WalletBadge compact contractor={c} />;
+
+    return (
+        <button
+            onClick={mint}
+            disabled={busy}
+            title={link ? "Link copied — send it to them" : `Get a link for ${c.name} to confirm this wallet`}
+            className="inline-flex items-center gap-1 rounded-full border border-[var(--border-strong)] px-1.5 py-0.5 text-[10px] text-[var(--text-faint)] transition hover:border-[var(--accent-line)] hover:text-[var(--accent)] disabled:opacity-50"
+        >
+            {busy ? <Loader2 size={10} className="animate-spin" /> : link ? <Check size={10} /> : <ShieldQuestion size={10} />}
+            {link ? "Copied" : "Verify"}
+        </button>
     );
 }
