@@ -8,7 +8,8 @@ import { parseUnits, formatUnits, erc20Abi } from "viem";
 import { Loader2, CheckCircle2, ShieldCheck, Send, AlertCircle, History, Wallet } from "lucide-react";
 import { USDC_ADDRESS } from "@/lib/usdc";
 import { DISPERSE_ADDRESS, disperseAbi } from "@/lib/disperse";
-import { flagFor, avatarFor, truncate, formatUSD } from "@/lib/contractor-types";
+import { avatarFor, truncate, formatUSD } from "@/lib/contractor-types";
+import Flag from "@/components/flag";
 import { preflight, type Preflight } from "@/lib/preflight";
 import Confirm from "@/components/confirm";
 import WalletBadge from "@/components/wallet-badge";
@@ -300,7 +301,7 @@ export default function PortalHome() {
                                 <div key={li.contractor_id} className="flex items-center gap-3 px-5 md:px-6 py-3">
                                     <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full font-display font-semibold text-xs text-[var(--accent-ink)]" style={{ background: `linear-gradient(135deg, ${g1}, ${g2})` }}>{initials}</div>
                                     <div className="min-w-0 flex-1">
-                                        <div className="text-sm font-medium truncate">{li.name} <span className="ml-1">{flagFor(li.country)}</span></div>
+                                        <div className="text-sm font-medium truncate">{li.name} <Flag country={li.country} className="ml-1.5" /></div>
                                         <div className="flex items-center gap-1.5">
                                             <span className="font-mono text-[10px] text-[var(--text-faint)]">{truncate(li.wallet)}</span>
                                             {/* Shown at the moment of signing, which is the only

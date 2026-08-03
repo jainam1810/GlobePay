@@ -18,7 +18,7 @@ import {
     ArrowLeft, Sheet, Building2, Copy, Check,
 } from "lucide-react";
 import type { SavedRecord } from "@/lib/records";
-import { flagFor } from "@/lib/contractor-types";
+import Flag from "@/components/flag";
 import { toCsv, downloadCsv, exportName } from "@/lib/csv";
 
 const ALL = "__all__";
@@ -367,9 +367,9 @@ function Table({ rows }: { rows: SavedRecord[] }) {
                     <Th>Freelancer</Th>
                     <Th className="hidden lg:table-cell w-[124px]">Country</Th>
                     <Th className="hidden md:table-cell w-[124px]">Invoice</Th>
-                    <Th className="hidden xl:table-cell w-[136px]">Wallet</Th>
+                    <Th className="audit-col-id hidden xl:table-cell w-[136px]">Wallet</Th>
                     <Th className="w-[110px] text-right">Amount</Th>
-                    <Th className="hidden sm:table-cell w-[100px]">Proof</Th>
+                    <Th className="audit-col-id hidden sm:table-cell w-[100px]">Proof</Th>
                     <Th className="w-[34px] no-print" />
                 </tr>
             </thead>
@@ -414,24 +414,26 @@ function Row({ r }: { r: SavedRecord }) {
                     {when.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}
                 </Td>
                 <Td>
-                    <div className="text-[13px] font-medium truncate">{r.payee_name}</div>
+                    <div className="audit-name text-[13px] font-medium truncate">{r.payee_name}</div>
                     {/* Country rides under the name below lg, and the wallet below
-                        xl, so neither is lost when its column folds away. */}
-                    <div className="text-[11px] text-[var(--text-faint)] truncate lg:hidden">
-                        <span className="mr-1">{flagFor(r.tax_country ?? "")}</span>{r.tax_country ?? "—"}
+                        xl, so neither is lost when its column folds away. Both are
+                        marked so print can drop them — on paper every column is
+                        shown, and these would print the same value twice. */}
+                    <div className="audit-inline text-[11px] text-[var(--text-faint)] truncate lg:hidden">
+                        <Flag country={r.tax_country} className="audit-flag mr-1.5" />{r.tax_country ?? "—"}
                     </div>
-                    <div className="audit-wallet xl:hidden flex items-center gap-1.5">
+                    <div className="audit-inline xl:hidden flex items-center gap-1.5">
                         <span className="font-mono text-[11px] text-[var(--text-faint)] truncate">{shortAddr(r.payee_wallet)}</span>
                         {r.payee_wallet && <CopyButton value={r.payee_wallet} title="Copy full wallet address" />}
                     </div>
                 </Td>
                 <Td className="hidden lg:table-cell text-[12px] text-[var(--text-dim)] whitespace-nowrap truncate">
-                    <span className="mr-1.5">{flagFor(r.tax_country ?? "")}</span>{r.tax_country ?? "—"}
+                    <Flag country={r.tax_country} className="audit-flag mr-1.5" />{r.tax_country ?? "—"}
                 </Td>
                 <Td className="hidden md:table-cell font-mono text-[11px] text-[var(--text-dim)] truncate">
                     {r.invoice_number || <span className="text-[var(--text-faint)]">—</span>}
                 </Td>
-                <Td className="hidden xl:table-cell">
+                <Td className="audit-col-id hidden xl:table-cell">
                     <div className="flex items-center gap-1.5">
                         <span className="font-mono text-[11px] text-[var(--text-dim)] truncate">{shortAddr(r.payee_wallet)}</span>
                         {r.payee_wallet && <CopyButton value={r.payee_wallet} title="Copy full wallet address" />}
@@ -440,7 +442,7 @@ function Row({ r }: { r: SavedRecord }) {
                 <Td className="font-mono text-[13px] font-medium text-right whitespace-nowrap">
                     ${money(r.amount)}
                 </Td>
-                <Td className="hidden sm:table-cell whitespace-nowrap">
+                <Td className="audit-col-id hidden sm:table-cell whitespace-nowrap">
                     {r.tx_hash ? (
                         <a href={`https://sepolia.basescan.org/tx/${r.tx_hash}`} target="_blank" rel="noreferrer"
                             className="font-mono text-[11px] text-[var(--accent)] hover:underline underline-offset-2">
@@ -455,6 +457,28 @@ function Row({ r }: { r: SavedRecord }) {
                         <ChevronRight size={15} className={`transition-transform ${open ? "rotate-90" : ""}`} />
                     </button>
                 </Td>
+            </tr>
+
+            {/* Print only: the identifiers, in full, on their own line.
+                A wallet is 42 characters and a transaction hash is 66. Neither
+                fits a column on A4 portrait beside everything else, and the
+                screen's shortened form (0xaFBb…21Bb) is useless in a document
+                someone has to reconcile against — an audit pack that can't be
+                transcribed isn't an audit pack. So on paper each payment gets a
+                second, full-width line carrying both values complete, wrapping
+                rather than truncating, and the two cramped columns are dropped. */}
+            <tr className="audit-ids">
+                <td />
+                <td colSpan={7} className="audit-ids-cell">
+                    <span className="audit-id">
+                        <span className="audit-id-label">Wallet</span>
+                        <span className="audit-mono">{r.payee_wallet ?? "—"}</span>
+                    </span>
+                    <span className="audit-id">
+                        <span className="audit-id-label">Transaction</span>
+                        <span className="audit-mono">{r.tx_hash ?? "not recorded"}</span>
+                    </span>
+                </td>
             </tr>
 
             {/* Drill-down: the supporting detail an auditor asks for second, once

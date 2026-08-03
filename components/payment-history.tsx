@@ -6,7 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { History, CheckCircle2, ExternalLink, Loader2, AlertCircle, Copy, Check, ChevronDown, DownloadCloud, Send } from "lucide-react";
 import type { SavedPayment } from "@/lib/payments";
-import { truncate, flagFor, avatarFor, currencyForCountry } from "@/lib/contractor-types";
+import { truncate, avatarFor, currencyForCountry } from "@/lib/contractor-types";
+import Flag from "@/components/flag";
 import { getFxRate } from "@/lib/fx";
 
 const ALL = "__all__";
@@ -269,7 +270,7 @@ function Receipt({ p, date, time }: { p: SavedPayment; date: string; time: strin
                         <div key={r.wallet} className="flex items-center gap-3 px-5 py-3">
                             <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full font-display font-semibold text-[11px] text-[var(--accent-ink)]" style={{ background: `linear-gradient(135deg, ${g1}, ${g2})` }}>{initials}</div>
                             <div className="min-w-0 flex-1">
-                                <div className="text-sm font-medium truncate">{display}{r.country && <span className="ml-1.5 text-sm">{flagFor(r.country)}</span>}</div>
+                                <div className="text-sm font-medium truncate">{display}{r.country && <Flag country={r.country} className="ml-1.5" />}</div>
                                 <div className="flex items-center gap-1.5">
                                     <span className="font-mono text-[10px] text-[var(--text-faint)]">{truncate(r.wallet)}</span>
                                     <CopyButton value={r.wallet} title={`Copy ${display}'s wallet address`} size={11} />

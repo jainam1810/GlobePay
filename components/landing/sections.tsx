@@ -143,9 +143,9 @@ export function Hero() {
 // to a real company — no name, wallet or amount from it appears here. The
 // countries are real because they are the three GlobePay actually supports.
 const PAYEES = [
-    { name: "Amara Eze", note: "Backend engineer", flag: "🇳🇬", amount: "2,400.00" },
-    { name: "Lucía Moreno", note: "Product designer", flag: "🇦🇷", amount: "1,850.00" },
-    { name: "Miguel Santos", note: "QA engineer", flag: "🇵🇭", amount: "1,200.00" },
+    { name: "Amara Eze", note: "Backend engineer · Nigeria", flag: "🇳🇬", amount: "2,400.00" },
+    { name: "Lucía Moreno", note: "Product designer · Argentina", flag: "🇦🇷", amount: "1,850.00" },
+    { name: "Miguel Santos", note: "QA engineer · Philippines", flag: "🇵🇭", amount: "1,200.00" },
 ];
 
 export function GlobalPayroll() {
@@ -445,9 +445,6 @@ export function InvoiceAI() {
                                         <div className="font-mono text-[10px] leading-snug break-all text-[#4A443B]">
                                             0x7a0e76dc321B5d44BcEa20527f4B93d13bfc93e5
                                         </div>
-                                    </div>
-                                    <div className="mt-2 text-[10px] italic text-[#6E675C]">
-                                        &ldquo;sorry it&rsquo;s late — same wallet as last month, thanks!&rdquo;
                                     </div>
                                 </div>
                             </div>

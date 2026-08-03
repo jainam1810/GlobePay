@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Building2, Loader2, Plus, AlertCircle } from "lucide-react";
-import { COMPANY_COUNTRIES, flagFor, truncate } from "@/lib/contractor-types";
+import { COMPANY_COUNTRIES, truncate } from "@/lib/contractor-types";
+import Flag from "@/components/flag";
 import type { DbClient } from "@/lib/clients";
 
 export default function ClientsPage() {
@@ -51,7 +52,7 @@ export default function ClientsPage() {
                         <Link key={c.id} href={`/admin/clients/${c.id}`} className="card p-5 hover:bg-[var(--surface-2)] transition-colors">
                             <div className="flex items-center gap-3">
                                 <div className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--accent-soft)] border border-[var(--accent-line)] text-lg">
-                                    {flagFor(c.home_country)}
+                                    <Flag country={c.home_country} size={20} />
                                 </div>
                                 <div className="min-w-0">
                                     <div className="font-display font-semibold truncate">{c.company_name}</div>

@@ -22,7 +22,7 @@ import {
 } from "recharts";
 import { Loader2, AlertCircle, BarChart3, Table2 } from "lucide-react";
 import type { SavedRecord } from "@/lib/records";
-import { flagFor } from "@/lib/contractor-types";
+
 import { format, parseISO } from "date-fns";
 
 // Recharts needs a literal — it cannot resolve a CSS custom property here.
@@ -199,7 +199,7 @@ export default function Analytics({ scopeLabel }: { scopeLabel?: string }) {
                             headers={["Country", "Paid", "Payments"]}
                             table={byCountry.map((d) => [d.label, money2(d.value), String(d.n)])}
                         >
-                            <RankBars data={byCountry} flags />
+                            <RankBars data={byCountry} />
                         </ChartFrame>
                     </Panel>
                 )}
@@ -234,7 +234,7 @@ export default function Analytics({ scopeLabel }: { scopeLabel?: string }) {
 // Horizontal because category names are long and would otherwise be rotated.
 // Every bar is the same hue: these are nominal categories, so a value ramp would
 // encode length twice and say nothing new.
-function RankBars({ data, flags = false }: { data: { label: string; value: number; n: number }[]; flags?: boolean }) {
+function RankBars({ data }: { data: { label: string; value: number; n: number }[] }) {
     return (
         <ResponsiveContainer width="100%" height={Math.max(160, data.length * 42 + 24)}>
             <BarChart data={data} layout="vertical" margin={{ top: 4, right: 56, left: 0, bottom: 4 }} barCategoryGap={8}>
@@ -244,7 +244,7 @@ function RankBars({ data, flags = false }: { data: { label: string; value: numbe
                     tick={{ fill: INK_DIM, fontSize: 12 }} axisLine={false} tickLine={false}
                     tickFormatter={(v: string) => {
                         const name = v.length > 16 ? v.slice(0, 15) + "…" : v;
-                        return flags ? `${flagFor(v)} ${name}` : name;
+                        return name;
                     }} />
                 <Tooltip content={<Tip />} cursor={{ fill: "var(--surface-2)" }} />
                 {/* 4px rounded data-end, anchored square to the baseline. */}

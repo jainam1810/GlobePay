@@ -172,9 +172,9 @@ export function SiteFooter() {
                 </div>
 
                 <div className="mt-12 flex flex-col items-start justify-between gap-3 border-t border-[var(--border)] pt-6 text-[12px] text-[var(--text-faint)] sm:flex-row sm:items-center">
-                    <span>© {new Date().getFullYear()} GlobePay. Not a bank. Funds move wallet to wallet.</span>
+                    <span>© {new Date().getFullYear()} GlobePay. Funds move wallet to wallet.</span>
                     <span className="flex items-center gap-2">
-                        <span className="dot dot-pending" /> Running on Base Sepolia testnet
+                        <span className="dot dot-pending" /> Running on Ethereum L2 &mdash; Base
                     </span>
                 </div>
             </div>

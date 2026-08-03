@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { Loader2, AlertCircle, ArrowLeft, MessagesSquare, Paperclip } from "lucide-react";
 import Conversation from "@/components/conversation";
-import { flagFor } from "@/lib/contractor-types";
+import Flag from "@/components/flag";
+
 import type { ThreadSummary } from "@/lib/messages";
 
 export default function AdminMessagesPage() {
@@ -32,7 +33,7 @@ export default function AdminMessagesPage() {
                     <Conversation
                         me="globepay"
                         clientId={open.client_id}
-                        title={`${flagFor(open.home_country)} ${open.company_name}`}
+                        title={open.company_name}
                         subtitle={open.home_country}
                     />
                 </div>
@@ -77,7 +78,7 @@ export default function AdminMessagesPage() {
                     {threads.map((t) => (
                         <button key={t.client_id} onClick={() => setOpen(t)}
                             className="w-full text-left flex items-center gap-4 px-5 py-4 hover:bg-[var(--surface-2)] transition-colors">
-                            <span className="text-xl shrink-0">{flagFor(t.home_country)}</span>
+                            <Flag country={t.home_country} size={20} className="shrink-0" />
                             <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2">
                                     <span className={`text-[14px] truncate ${t.unread ? "font-semibold" : "font-medium"}`}>{t.company_name}</span>
