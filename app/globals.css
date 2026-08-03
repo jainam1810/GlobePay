@@ -185,6 +185,15 @@ body::after {
   border-radius: 4px;
 }
 
+/* …except the command palette's input, which is focused the instant the dialog
+   opens and stays that way. A ring around the only focusable thing on screen
+   marks nothing, and it is drawn over the dialog's own border. The exception is
+   spelled out here rather than with a utility class because the rule above is
+   unlayered, so it outranks anything Tailwind emits into a layer. */
+[cmdk-input]:focus-visible {
+  outline: none;
+}
+
 /* Money and addresses line up column-to-column only with tabular figures. */
 .font-mono,
 [class*="font-mono"] {

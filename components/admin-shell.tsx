@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { Building2, History, LayoutDashboard, FileText, MessagesSquare, BarChart3, Settings } from "lucide-react";
 import AccountMenu from "@/components/account-menu";
 import AskWidget from "@/components/ask-widget";
+import CommandSearch from "@/components/command-search";
 
 const nav = [
     { href: "/admin", label: "Overview", icon: LayoutDashboard },
@@ -32,7 +33,10 @@ export default function AdminShell({ children, email }: { children: React.ReactN
                         <div className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--accent)] text-[var(--accent-ink)] font-display font-bold text-lg shadow-[0_0_24px_var(--accent-glow)]">G</div>
                         <span className="font-display text-xl font-semibold tracking-tight">GlobePay</span>
                     </Link>
-                    <div className="px-2 mb-7"><span className="pill">Operator console</span></div>
+                    <div className="px-2 mb-4"><span className="pill">Operator console</span></div>
+                    <div className="px-2 mb-4">
+                        <CommandSearch role="globepay_admin" />
+                    </div>
                     <nav className="flex flex-col gap-1">
                         {nav.map((item) => (
                             <Link key={item.label} href={item.href} className={`nav-item ${isActive(item.href) ? "nav-item-active" : ""}`}>

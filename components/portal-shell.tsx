@@ -6,6 +6,7 @@ import ConnectButton from "@/components/connect-button";
 import AskWidget from "@/components/ask-widget";
 import AccountMenu from "@/components/account-menu";
 import Flag from "@/components/flag";
+import CommandSearch from "@/components/command-search";
 
 const nav = [
     { href: "/portal", label: "Home", icon: Home },
@@ -35,8 +36,11 @@ export default function PortalShell({ children, companyName, homeCountry, email 
                         <div className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--accent)] text-[var(--accent-ink)] font-display font-bold text-lg shadow-[0_0_24px_var(--accent-glow)]">G</div>
                         <span className="font-display text-xl font-semibold tracking-tight">GlobePay</span>
                     </Link>
-                    <div className="px-2 mb-7">
+                    <div className="px-2 mb-4">
                         <span className="pill"><Flag country={homeCountry} /> {companyName}</span>
+                    </div>
+                    <div className="px-2 mb-4">
+                        <CommandSearch role="client" />
                     </div>
                     <nav className="flex flex-col gap-1">
                         {nav.map((item) => (

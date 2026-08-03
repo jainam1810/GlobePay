@@ -1,4 +1,5 @@
 "use client";
+import { Suspense } from "react";
 import AuditPack from "@/components/audit-pack";
 
 export default function AdminAuditPackPage() {
@@ -12,7 +13,10 @@ export default function AdminAuditPackPage() {
                     on-chain proof for each line.
                 </p>
             </div>
-            <AuditPack />
+            {/* ?q= from the command palette; useSearchParams needs a boundary. */}
+            <Suspense fallback={null}>
+                <AuditPack />
+            </Suspense>
         </div>
     );
 }
