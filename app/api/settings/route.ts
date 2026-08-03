@@ -12,6 +12,7 @@ import { NextResponse } from "next/server";
 import { isAddress } from "viem";
 import { getSupabase } from "@/lib/supabase";
 import { getSessionInfo } from "@/lib/auth";
+import { guard } from "@/lib/rate-limit";
 import { COMPANY_COUNTRIES } from "@/lib/contractor-types";
 import { notifyWalletChanged } from "@/lib/notify";
 
@@ -35,6 +36,9 @@ export async function PATCH(req: Request) {
     try {
         const s = await getSessionInfo();
         if (!s?.clientId) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
+        const over = await guard("write", s.userId);
+        if (over) return over;
 
         const body = await req.json();
         const patch: Record<string, string | null> = {};

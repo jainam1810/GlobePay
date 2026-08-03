@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAddress } from "viem";
 import { getSessionInfo } from "@/lib/auth";
+import { guard } from "@/lib/rate-limit";
 import { importSchema, type ImportExtraction, type ImportedFreelancer } from "@/lib/import-schema";
 import { SUPPORTED_COUNTRIES } from "@/lib/contractor-types";
 import { getTaxRule, validateTaxId } from "@/lib/tax-rules";
@@ -53,6 +54,10 @@ export async function POST(req: Request) {
     try {
         const s = await getSessionInfo();
         if (!s || s.role !== "globepay_admin") return NextResponse.json({ error: "GlobePay admin only" }, { status: 403 });
+
+        // Also a Gemini route, and the same project quota is behind it.
+        const over = await guard("extract", s.userId);
+        if (over) return over;
 
         const { text, dataUrl, mimeType } = await req.json();
         if (!text?.trim() && !(dataUrl && mimeType)) {

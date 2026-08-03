@@ -3,6 +3,7 @@ import { createPublicClient, http, isAddress } from "viem";
 import { baseSepolia } from "viem/chains";
 import { getSupabase } from "@/lib/supabase";
 import { getSessionInfo } from "@/lib/auth";
+import { guard, ipOf } from "@/lib/rate-limit";
 import { VERIFY_TOKEN_TTL_HOURS, verificationMessage } from "@/lib/wallet-verification";
 
 // Two halves of the same flow:
@@ -94,6 +95,12 @@ export async function GET(req: Request) {
 /** Public: here is my signature. */
 export async function PUT(req: Request) {
     try {
+        // Public and unauthenticated — the token is the only credential, so
+        // IP is the identity we have. Each attempt costs an on-chain call
+        // through verifyMessage, which is the reason for a ceiling.
+        const over = await guard("verify", ipOf(req));
+        if (over) return over;
+
         const { token, signature, address } = await req.json();
         if (!token || !signature || !address) {
             return NextResponse.json({ error: "Missing token, signature or address" }, { status: 400 });

@@ -177,19 +177,23 @@ export function PasswordSection({ email }: { email: string | null }) {
         if (!email) return setMsg({ kind: "err", text: "No email on this account — contact GlobePay." });
 
         setBusy(true); setMsg(null);
-        const supabase = getSupabaseBrowser();
 
-        // Prove they know the current one first. Supabase can enforce this
-        // server-side, but only when the project has that flag turned on, and a
-        // change-password form that doesn't ask is a session left unattended on
-        // a shared machine away from being someone else's account.
-        const { error: reauth } = await supabase.auth.signInWithPassword({ email, password: current });
-        if (reauth) {
+        // Prove they know the current one first, through our own route rather
+        // than straight to Supabase. Checking here would put no ceiling on
+        // guessing beyond Supabase's 1800/hour per IP; /api/reauth allows five
+        // attempts per quarter hour per user, which IP rotation can't dodge.
+        const check = await fetch("/api/reauth", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ password: current }),
+        });
+        if (!check.ok) {
+            const j = await check.json().catch(() => ({}));
             setBusy(false);
-            return setMsg({ kind: "err", text: "That current password isn't right." });
+            return setMsg({ kind: "err", text: j.error || "That current password isn't right." });
         }
 
-        const { error } = await supabase.auth.updateUser({ password: next });
+        const { error } = await getSupabaseBrowser().auth.updateUser({ password: next });
         setBusy(false);
         if (error) return setMsg({ kind: "err", text: "That password couldn't be set. Try a different one." });
         setCurrent(""); setNext(""); setConfirm("");

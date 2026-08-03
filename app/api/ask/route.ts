@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { getSessionInfo } from "@/lib/auth";
+import { guard } from "@/lib/rate-limit";
 import { toolDeclarations, SYSTEM_BRIEF } from "@/lib/ask-tools";
 
 // Agentic assistant over the payment ledger.
@@ -168,6 +169,14 @@ function describeCall(name: string, a: Record<string, unknown>) {
 export async function POST(req: Request) {
     const s = await getSessionInfo();
     if (!s) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
+    // The costliest route in the app: one question can spend five Gemini calls,
+    // and the free tier is twenty per model per day. Without a ceiling, a single
+    // account — or one stolen session — takes the assistant down for everyone,
+    // because the quota belongs to the project rather than to the caller.
+    const over = await guard("ask", s.userId,
+        "You've asked a lot of questions in a short while. Give it a few minutes — your payments and audit pack are unaffected.");
+    if (over) return over;
 
     const { question, history } = await req.json();
     if (!question?.trim()) return NextResponse.json({ error: "Ask a question" }, { status: 400 });
