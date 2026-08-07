@@ -151,7 +151,10 @@ const PAYEES = [
 
 export function GlobalPayroll() {
     return (
-        <section id="how" className="scroll-mt-24 px-5 py-14 sm:px-8 sm:py-20 md:py-28">
+        // #how belongs to the step-by-step walkthrough now. This section makes
+        // the case for global payroll; it never answered "how does it work",
+        // which is why the button that pointed here felt like it did nothing.
+        <section id="global" className="scroll-mt-24 px-5 py-14 sm:px-8 sm:py-20 md:py-28">
             <div className="mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-2">
                 <div>
                     <Head

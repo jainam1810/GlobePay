@@ -88,6 +88,13 @@ html,
 body {
   margin: 0;
   padding: 0;
+  /* No sideways scroll, ever. The landing page carried about 12px of it on a
+     390px phone — enough to let the whole page slide under your thumb while
+     you are trying to scroll down, which feels broken even when nothing looks
+     wrong. `clip` rather than `hidden` on purpose: hidden turns the element
+     into a scroll container and quietly kills position: sticky inside it,
+     which is what holds the portal's sidebar and the table headers in place. */
+  overflow-x: clip;
 }
 
 /* Pointer on anything that does something when clicked.

@@ -8,6 +8,7 @@
 import {
     Hero, GlobalPayroll, Platform, PaymentRun, InvoiceAI, Pricing, Proof, Roadmap, Faq,
 } from "@/components/landing/sections";
+import { HowItWorks } from "@/components/landing/how-it-works";
 import { SiteNav, SiteFooter } from "@/components/landing/nav";
 
 export default function Home() {
@@ -16,6 +17,10 @@ export default function Home() {
             <SiteNav />
             <main className="relative z-[1]">
                 <Hero />
+                {/* Directly after the hero, because it is what the hero's own
+                    button promises. Everything below it is the argument; this is
+                    the answer. */}
+                <HowItWorks />
                 <GlobalPayroll />
                 <Platform />
                 <PaymentRun />
