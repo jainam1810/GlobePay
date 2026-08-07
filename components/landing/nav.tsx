@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/kit";
 
 // Anchors resolve against the home page, so they still work from /contact.
 const LINKS = [
-    { href: "/#how", label: "How it works" },
+    { href: "/how-it-works", label: "How it works" },
     { href: "/#platform", label: "Platform" },
     { href: "/#proof", label: "Proof" },
     { href: "/#pricing", label: "Pricing" },
@@ -112,7 +112,7 @@ const FOOTER: { title: string; links: { label: string; href: string }[] }[] = [
     {
         title: "Product",
         links: [
-            { label: "How it works", href: "#how" },
+            { label: "How it works", href: "/how-it-works" },
             { label: "Platform", href: "#platform" },
             { label: "Pricing", href: "#pricing" },
             { label: "Open the app", href: "/login" },

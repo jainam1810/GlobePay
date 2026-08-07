@@ -108,7 +108,7 @@ export function Hero() {
                     <Reveal index={3}>
                         <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                             <Button asChild variant="ghost" size="lg">
-                                <a href="#how">See how it works</a>
+                                <Link href="/how-it-works">See how it works</Link>
                             </Button>
                             <Button asChild size="lg">
                                 <Link href="/login">Open the app <ArrowUpRight size={16} /></Link>

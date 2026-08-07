@@ -1,15 +1,19 @@
 "use client";
-// "See how it works" — the section that button should always have led to.
+// The walkthrough — five steps from an empty wallet to a paid team, in the
+// order you actually do them.
 //
-// It used to scroll to a general overview, which is why pressing it felt like
-// nothing happened: you arrived somewhere that described the product rather than
-// walking you through using it. This is the walkthrough — five steps from an
-// empty wallet to a paid team, in the order you actually do them.
+// A page of its own rather than a section, because it answers a different
+// question from the rest of the marketing site. Everything on the home page
+// argues that you should want this; this explains how it is done. It also means
+// "How it works" in the nav is a destination someone can link to, return to and
+// send to a colleague, instead of a scroll position that changes whenever a
+// section is added above it.
 //
 // The cinema is one scroll-linked rail that fills as you read, so the sequence
 // advances with you rather than playing on a timer you can't keep up with.
-// Everything else arrives once and stops, which is the house rule for this page.
+// Everything else arrives once and stops, which is the house rule for this site.
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { motion, useScroll, useSpring, useTransform, useReducedMotion } from "motion/react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
@@ -96,14 +100,16 @@ export function HowItWorks() {
     const height = useTransform(fill, (v) => `${Math.max(0, Math.min(1, v)) * 100}%`);
 
     return (
-        <section id="how" className="scroll-mt-24 px-5 py-14 sm:px-8 sm:py-20 md:py-28">
-            <div className="mx-auto max-w-5xl">
+        <div className="mx-auto max-w-5xl">
+            <div>
                 <div className="max-w-2xl">
                     <Reveal><span className="tag">How it works</span></Reveal>
                     <Reveal index={1}>
-                        <h2 className="text-gradient mt-5 text-[clamp(2rem,4.6vw,3.4rem)] font-medium leading-[1.06] tracking-[-0.035em]">
+                        {/* h1: this is the page's subject now, not a section of
+                            somebody else's page. */}
+                        <h1 className="text-gradient mt-5 text-[clamp(2rem,4.6vw,3.4rem)] font-medium leading-[1.06] tracking-[-0.035em]">
                             From empty wallet<br />to everyone paid
-                        </h2>
+                        </h1>
                     </Reveal>
                     <Reveal index={2}>
                         <p className="mt-4 max-w-lg text-[15px] leading-relaxed text-[var(--text-dim)]">
@@ -114,8 +120,10 @@ export function HowItWorks() {
                     <Reveal index={3}>
                         <div className="mt-7 flex flex-wrap items-center gap-3">
                             <WatchButton />
+                            {/* Absolute, not "#faq": the FAQ lives on the home
+                                page, and a bare hash here scrolls nowhere. */}
                             <Button asChild variant="outline" size="md">
-                                <a href="#faq">Read the FAQ <ArrowRight size={15} /></a>
+                                <Link href="/#faq">Read the FAQ <ArrowRight size={15} /></Link>
                             </Button>
                         </div>
                     </Reveal>
@@ -157,8 +165,21 @@ export function HowItWorks() {
                         </div>
                     </div>
                 </Reveal>
+
+                {/* A page needs somewhere to go next; a section had the rest of
+                    the page underneath it and did not. */}
+                <Reveal index={1}>
+                    <div className="mt-8 flex flex-wrap items-center gap-3">
+                        <Button asChild size="md">
+                            <Link href="/login">Open the app <ArrowRight size={15} /></Link>
+                        </Button>
+                        <Button asChild variant="outline" size="md">
+                            <Link href="/contact">Talk to us</Link>
+                        </Button>
+                    </div>
+                </Reveal>
             </div>
-        </section>
+        </div>
     );
 }
 
