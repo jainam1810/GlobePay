@@ -24,7 +24,7 @@ export type PayrollLineItem = {
     name: string;
     wallet: string;
     country: string;
-    amount: number;    // real USD amount (display/records); testnet sends 1 USDC per person
+    amount: number;    // USD, and the same figure sent in USDC — a dollar is a USDC
     // Set when this line came from a contractor's invoice, so the payment that
     // settles it can be traced back to the document that asked for it. Carried
     // into the ledger record on execution.

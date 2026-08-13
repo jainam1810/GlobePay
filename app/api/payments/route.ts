@@ -45,11 +45,12 @@ export async function GET() {
 
         let payments = data || [];
 
-        // On testnet every recipient gets a flat 1 USDC, so the on-chain amount
-        // is not the figure anyone was actually owed. The payroll run holds the
-        // real USD per person — attach it by tx_hash so receipts can show it.
-        // Payments with no run behind them (e.g. imported from the chain before
-        // runs existed) simply keep their on-chain amount.
+        // The run is still attached by tx_hash, because it carries what the
+        // on-chain transfer cannot: who each line was for, the invoice behind
+        // it, and the note. The amounts now agree — one dollar is one USDC — so
+        // this is provenance rather than a correction. Payments with no run
+        // behind them (imported from the chain before runs existed) keep what
+        // the chain says.
         if (payments.length) {
             const hashes = payments.map((p) => p.tx_hash).filter(Boolean);
             const { data: runs } = await supabase

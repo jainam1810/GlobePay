@@ -154,7 +154,7 @@ const fmtMoney = (n: number, ccy: string) => {
 const fmtFeeEth = (f: number) => `${f} ETH`;
 
 const TESTNET_NOTE =
-    "Testnet demo: the chain moved a flat 1 USDC per person. This is the real USD figure from the payroll run — in production that exact amount is what gets sent.";
+    "One dollar is one USDC, so the figure here is what moved on chain. Base Sepolia is a test network, so the tokens are test tokens.";
 
 function PaymentRow({ p, found = false }: { p: SavedPayment; found?: boolean }) {
     // A payment someone was sent to opens on arrival — they came to look at it,
@@ -352,7 +352,7 @@ function Footnote() {
                     <span className="text-[var(--text-dim)]"> &ldquo;Confirmed&rdquo;</span> means the network has permanently
                     recorded it: it can&rsquo;t be edited, reversed, or deleted, and the Receipt ID lets anyone verify it
                     independently. Amounts are shown in USD from the payroll run behind each payment; on this testnet the
-                    chain itself moves a flat 1 USDC per person, and in production that USD figure is what gets sent.
+                    chain moves that same figure in USDC — a dollar is a USDC — on Base Sepolia, where the tokens are test tokens.
                 </div>
             </div>
         </div>
