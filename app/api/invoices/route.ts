@@ -44,6 +44,7 @@ async function extract(base64: string, mimeType: string): Promise<{ inv: Extract
                                 text: `You are an invoice-reading assistant. Extract the structured fields from the attached invoice and return JSON matching the provided schema.
 
 Rules:
+- payeeName: the person or business being PAID — normally the name at the top of the invoice, or under "From". It is NOT the customer being billed, which appears under "Billed to", "Bill to", "Invoice to" or "Client". Those two are easy to swap and swapping them is how a payment ends up addressed to the wrong party. If in doubt, the payee is whoever the wallet address belongs to.
 - payeeWallet: the 0x… crypto wallet address the contractor asks to be paid at, copied EXACTLY, character for character. Never correct, complete or guess an address — a single wrong character sends money to a stranger. Empty string if none is given.
 - amount: the final total payable, as a number with no currency symbol.
 - currency: 3-letter ISO code (USD, EUR, GBP, NGN, INR, ARS, PHP, BRL, etc.).
