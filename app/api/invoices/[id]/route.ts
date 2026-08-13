@@ -20,7 +20,7 @@ import { matchInvoice } from "@/lib/invoice-submissions";
 
 const FIELDS =
     "id, created_at, client_id, file_name, file_type, file_size, extracted, payee_name, payee_wallet, " +
-    "amount, currency, invoice_number, invoice_date, description, status, review_note, contractor_id, reviewed_at";
+    "amount, currency, invoice_number, invoice_date, description, status, review_note, contractor_id, reviewed_at, payroll_run_id";
 
 const asDate = (s?: string | null) => (s && /^\d{4}-\d{2}-\d{2}$/.test(s.trim()) ? s.trim() : null);
 
@@ -70,6 +70,27 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             }
             const { data, error } = await supabase
                 .from("invoice_submissions").update(patch).eq("id", id).select(FIELDS).single();
+            if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+            return NextResponse.json({ submission: data });
+        }
+
+        /* ── undo an accept ──────────────────────────────────────────────── */
+        if (action === "reopen") {
+            if (sub.payroll_run_id) {
+                // The run has claimed it. Reopening now would let the same
+                // invoice be paid twice, and there is no reversal on chain.
+                return NextResponse.json(
+                    { error: "This invoice is already on a payroll run and can't be reopened." },
+                    { status: 409 },
+                );
+            }
+            const { data, error } = await supabase.from("invoice_submissions").update({
+                status: "pending",
+                contractor_id: null,
+                review_note: null,
+                reviewed_by: null,
+                reviewed_at: null,
+            }).eq("id", id).select(FIELDS).single();
             if (error) return NextResponse.json({ error: error.message }, { status: 500 });
             return NextResponse.json({ submission: data });
         }

@@ -23,7 +23,7 @@ const MODEL = "gemini-2.5-flash";
 
 const FIELDS =
     "id, created_at, client_id, file_name, file_type, file_size, extracted, payee_name, payee_wallet, " +
-    "amount, currency, invoice_number, invoice_date, description, status, review_note, contractor_id, reviewed_at, storage_path";
+    "amount, currency, invoice_number, invoice_date, description, status, review_note, contractor_id, reviewed_at, payroll_run_id, storage_path";
 
 /** Read one invoice. Never throws — a document we can't read is still a document. */
 async function extract(base64: string, mimeType: string): Promise<{ inv: ExtractedInvoice | null; note: string }> {
@@ -197,17 +197,26 @@ export async function GET(req: Request) {
             }
         }
 
-        // Signed per request and short-lived: the path is stored, the URL never
-        // is, so a leaked response goes stale in ten minutes.
+        // Two URLs for the same object, because one cannot do both jobs. Asking
+        // for `download` sets Content-Disposition: attachment, which is right for
+        // a Save link and useless in an iframe — the browser saves the file and
+        // renders nothing, which is exactly how the viewer came up blank. So the
+        // viewing URL is minted without it and the download URL with it.
+        //
+        // Both are signed per request and short-lived: the path is stored, the
+        // URLs never are, so a leaked response goes stale in ten minutes.
         const submissions = await Promise.all(rows.map(async (r) => {
-            const { data: signed } = await supabase.storage.from(BUCKET)
-                .createSignedUrl(r.storage_path, SIGNED_URL_TTL, { download: r.file_name });
+            const [{ data: signed }, { data: forDownload }] = await Promise.all([
+                supabase.storage.from(BUCKET).createSignedUrl(r.storage_path, SIGNED_URL_TTL),
+                supabase.storage.from(BUCKET).createSignedUrl(r.storage_path, SIGNED_URL_TTL, { download: r.file_name }),
+            ]);
             const { storage_path: _drop, ...rest } = r;
             void _drop;
             return {
                 ...rest,
                 client_name: names.get(r.client_id) ?? null,
                 file_url: signed?.signedUrl ?? null,
+                file_download_url: forDownload?.signedUrl ?? null,
                 match: verdicts.get(r.id) ?? null,
             };
         }));

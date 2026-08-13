@@ -10,7 +10,7 @@
 // forty in parallel would hit the rate limit and fail most of them; sequential
 // means the fortieth is slower but the whole batch lands.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCircle2, Clock, FileText, Loader2, TriangleAlert, Upload } from "lucide-react";
+import { CheckCircle2, Clock, FileText, Loader2, RefreshCw, TriangleAlert, Upload } from "lucide-react";
 import { ALLOWED_TYPES, MAX_ATTACHMENT_BYTES, prettyBytes } from "@/lib/messages";
 import { STATUS_COPY, type InvoiceSubmission } from "@/lib/invoice-submissions";
 import { SkeletonRows, Empty } from "@/components/ui/kit";
@@ -156,7 +156,7 @@ export default function InvoiceUpload() {
                     />
                 ) : (
                     <ul className="space-y-2">
-                        {rows.map((r) => <Row key={r.id} r={r} />)}
+                        {rows.map((r) => <Row key={r.id} r={r} onReplace={(f) => void send(f)} />)}
                     </ul>
                 )}
             </div>
@@ -164,7 +164,8 @@ export default function InvoiceUpload() {
     );
 }
 
-function Row({ r }: { r: InvoiceSubmission }) {
+function Row({ r, onReplace }: { r: InvoiceSubmission; onReplace: (files: File[]) => void }) {
+    const replaceRef = useRef<HTMLInputElement>(null);
     const copy = STATUS_COPY[r.status];
     const tone = r.status === "accepted" ? "text-[var(--accent)]"
         : r.status === "needs_attention" ? "text-[var(--warn)]"
@@ -202,6 +203,24 @@ function Row({ r }: { r: InvoiceSubmission }) {
                 <p className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-2 text-[12px] leading-relaxed text-[var(--text-dim)]">
                     {r.review_note}
                 </p>
+            )}
+
+            {/* Something to actually do about it. Being told an invoice needs
+                fixing and then having to scroll back up and guess which file to
+                drag is how the same wrong one gets sent twice. */}
+            {r.status === "needs_attention" && (
+                <>
+                    <button
+                        onClick={() => replaceRef.current?.click()}
+                        className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-strong)] px-2.5 py-1.5 text-[12px] text-[var(--text-dim)] transition hover:border-[var(--accent-line)] hover:text-[var(--text)]"
+                    >
+                        <RefreshCw size={12} /> Send a corrected version
+                    </button>
+                    <input
+                        ref={replaceRef} type="file" className="hidden" accept="image/*,application/pdf"
+                        onChange={(e) => { onReplace([...(e.target.files ?? [])]); e.target.value = ""; }}
+                    />
+                </>
             )}
         </li>
     );
