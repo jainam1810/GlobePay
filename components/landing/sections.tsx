@@ -535,7 +535,10 @@ const PLANS = [
             "Test USDC on Base Sepolia",
         ],
         cta: "Start testing",
-        href: "/login",
+        // Contact rather than straight into the app: accounts are provisioned by
+        // GlobePay, so sending someone to a login they have no credentials for
+        // is a dead end dressed up as a call to action.
+        href: "/contact",
     },
     {
         name: "Pro",
