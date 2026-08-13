@@ -17,7 +17,7 @@ export type ExtractedInvoice = {
 export const invoiceSchema = {
     type: "object",
     properties: {
-        payeeName: { type: "string", description: "Contractor/vendor being paid" },
+        payeeName: { type: "string", description: "The person or business being PAID — the name at the top of the invoice or under 'From'. NOT the customer under 'Billed to'." },
         payeeAddress: { type: "string", description: "Their postal/billing address, empty string if absent" },
         payeeWallet: { type: "string", description: "The 0x… crypto wallet address to pay, copied EXACTLY character for character. Empty string if absent." },
         amount: { type: "number", description: "Total payable — number only, no symbol" },
