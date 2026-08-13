@@ -37,6 +37,7 @@ type Page = {
 const PORTAL_PAGES: Page[] = [
     { href: "/portal", label: "Home", icon: Home, keywords: "payroll dashboard start" },
     { href: "/portal/analytics", label: "Analytics", icon: BarChart3, keywords: "charts spend trends" },
+    { href: "/portal/freelancers", label: "Freelancers", icon: User, keywords: "team roster contractors people wallets verify" },
     { href: "/portal/invoices", label: "Invoices", icon: FileUp, keywords: "upload send bills documents" },
     { href: "/portal/payments", label: "Payments", icon: History, keywords: "history receipts paid transactions" },
     { href: "/portal/audit-pack", label: "Audit pack", icon: FileText, keywords: "records export pdf accountant invoices" },

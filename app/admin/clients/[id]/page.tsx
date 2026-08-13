@@ -10,6 +10,7 @@ import InvoiceIntake, { type InvoiceMeta } from "@/components/invoice-intake";
 import Confirm from "@/components/confirm";
 import WalletBadge from "@/components/wallet-badge";
 import { walletTrust } from "@/lib/wallet-verification";
+import { VerifiedTick } from "@/components/verify-wallet-cell";
 
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -228,7 +229,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                             className="h-4 w-4 accent-[var(--accent)] shrink-0 cursor-pointer" />
                                         <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full font-display font-semibold text-xs text-[var(--accent-ink)]" style={{ background: `linear-gradient(135deg, ${g1}, ${g2})` }}>{initials}</div>
                                         <div className="min-w-0 flex-1 cursor-pointer" onClick={() => toggle(c.id)}>
-                                            <div className="font-medium truncate text-sm">{c.name}</div>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="font-medium truncate text-sm">{c.name}</span>
+                                                <VerifiedTick contractor={c} />
+                                            </div>
                                             <div className="text-xs text-[var(--text-dim)] truncate">{c.role || "—"}</div>
                                         </div>
                                         <div className="hidden sm:flex items-center gap-1.5 text-xs text-[var(--text-dim)] w-24"><Flag country={c.country} label={false} />{c.country}</div>
