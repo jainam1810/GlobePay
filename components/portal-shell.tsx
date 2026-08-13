@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, History, FileText, MessagesSquare, BarChart3, Settings } from "lucide-react";
+import { Home, History, FileText, FileUp, MessagesSquare, BarChart3, Settings } from "lucide-react";
 import ConnectButton from "@/components/connect-button";
 import AskWidget from "@/components/ask-widget";
 import AccountMenu from "@/components/account-menu";
@@ -11,6 +11,7 @@ import CommandSearch from "@/components/command-search";
 const nav = [
     { href: "/portal", label: "Home", icon: Home },
     { href: "/portal/analytics", label: "Analytics", icon: BarChart3 },
+    { href: "/portal/invoices", label: "Invoices", icon: FileUp },
     { href: "/portal/payments", label: "Payments", icon: History },
     { href: "/portal/audit-pack", label: "Audit pack", icon: FileText },
     { href: "/portal/messages", label: "Messages", icon: MessagesSquare },
