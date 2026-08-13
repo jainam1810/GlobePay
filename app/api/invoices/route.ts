@@ -15,7 +15,7 @@ import { getSessionInfo } from "@/lib/auth";
 import { guard } from "@/lib/rate-limit";
 import { ALLOWED_TYPES, MAX_ATTACHMENT_BYTES } from "@/lib/messages";
 import { invoiceSchema, type ExtractedInvoice } from "@/lib/invoice-schema";
-import type { InvoiceSubmission } from "@/lib/invoice-submissions";
+import { matchInvoice, type InvoiceSubmission } from "@/lib/invoice-submissions";
 
 const BUCKET = "attachments";
 const SIGNED_URL_TTL = 60 * 10;   // 10 minutes: long enough to click, short enough not to leak
@@ -164,11 +164,37 @@ export async function GET(req: Request) {
         // types the result as a union that includes its error shape.
         const rows = (data ?? []) as unknown as (InvoiceSubmission & { storage_path: string })[];
 
-        // Admins see every client, so the rows need to say whose they are.
+        // Admins see every client, so the rows need to say whose they are — and
+        // the verdict is computed here rather than in the browser, because it is
+        // the thing that decides whether money can move and the roster it is
+        // judged against is not something a client session should be handed.
         let names = new Map<string, string>();
+        const verdicts = new Map<string, ReturnType<typeof matchInvoice>>();
+
         if (s.role === "globepay_admin" && rows.length) {
-            const { data: cs } = await supabase.from("clients").select("id, company_name");
+            const clientIds = [...new Set(rows.map((r) => r.client_id))];
+            const [{ data: cs }, { data: roster }, { data: accepted }] = await Promise.all([
+                supabase.from("clients").select("id, company_name"),
+                supabase.from("contractors").select("id, name, wallet, monthly_amount, client_id").in("client_id", clientIds),
+                supabase.from("invoice_submissions")
+                    .select("id, client_id, payee_wallet, invoice_number")
+                    .in("client_id", clientIds).eq("status", "accepted"),
+            ]);
             names = new Map((cs ?? []).map((c) => [c.id, c.company_name]));
+
+            const byClient = new Map<string, typeof roster>();
+            for (const c of roster ?? []) {
+                byClient.set(c.client_id, [...(byClient.get(c.client_id) ?? []), c]);
+            }
+            for (const r of rows) {
+                if (r.status !== "pending") continue;
+                verdicts.set(r.id, matchInvoice(
+                    r,
+                    byClient.get(r.client_id) ?? [],
+                    // An invoice never counts as a duplicate of itself.
+                    (accepted ?? []).filter((a) => a.client_id === r.client_id && a.id !== r.id),
+                ));
+            }
         }
 
         // Signed per request and short-lived: the path is stored, the URL never
@@ -178,7 +204,12 @@ export async function GET(req: Request) {
                 .createSignedUrl(r.storage_path, SIGNED_URL_TTL, { download: r.file_name });
             const { storage_path: _drop, ...rest } = r;
             void _drop;
-            return { ...rest, client_name: names.get(r.client_id) ?? null, file_url: signed?.signedUrl ?? null };
+            return {
+                ...rest,
+                client_name: names.get(r.client_id) ?? null,
+                file_url: signed?.signedUrl ?? null,
+                match: verdicts.get(r.id) ?? null,
+            };
         }));
 
         return NextResponse.json({ submissions });
