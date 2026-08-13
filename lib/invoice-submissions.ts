@@ -24,8 +24,12 @@ export type InvoiceSubmission = {
     review_note: string | null;
     contractor_id: string | null;
     reviewed_at: string | null;
-    /** Minted per request, short-lived — never stored. */
+    /** Set once a run has claimed this invoice — after that it cannot be reopened. */
+    payroll_run_id: string | null;
+    /** For displaying in place. Minted per request, short-lived, never stored. */
     file_url?: string | null;
+    /** Same object with Content-Disposition: attachment, for the Save link. */
+    file_download_url?: string | null;
     /** Computed server-side for reviewers; null for a client's own view. */
     match?: Matched | null;
 };

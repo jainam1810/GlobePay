@@ -46,8 +46,11 @@ const csp = [
   // PDF; https: because a freelancer's avatar can be hosted anywhere.
   "img-src 'self' data: blob: https:",
   `connect-src ${connectSrc}`,
-  // The WalletConnect QR modal renders in an iframe; nothing else is embedded.
-  "frame-src 'self' https://*.walletconnect.com https://*.walletconnect.org",
+  // Two things get embedded: the WalletConnect QR modal, and an uploaded invoice
+  // shown in the browser's own PDF viewer while a reviewer checks it against the
+  // fields. The invoice arrives on a signed Supabase Storage URL, so that origin
+  // has to be allowed or the frame renders as a blocked-content icon.
+  `frame-src 'self' ${SUPABASE} https://*.walletconnect.com https://*.walletconnect.org`,
   // Who may embed *us*. Not DENY: GlobePay is a Safe App and has to load inside
   // app.safe.global. Everyone else is refused, which closes the clickjacking
   // route to the Confirm & pay button.

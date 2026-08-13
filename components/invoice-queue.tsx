@@ -11,12 +11,14 @@
 // the roster and records which invoice they are owed for.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-    CheckCircle2, Clock, Download, ExternalLink, FileText, TriangleAlert, UserPlus, X,
+    CheckCircle2, Clock, Download, ExternalLink, Eye, EyeOff, FileText,
+    RotateCcw, TriangleAlert, UserPlus, X,
 } from "lucide-react";
 import { STATUS_COPY, type InvoiceSubmission, type Verdict } from "@/lib/invoice-submissions";
 import { SUPPORTED_COUNTRIES } from "@/lib/contractor-types";
 import { Button, SkeletonRows, Empty } from "@/components/ui/kit";
 import { Select, toOptions } from "@/components/ui/select";
+import InvoiceViewer from "@/components/invoice-viewer";
 
 const money = (n: number | null, ccy: string | null) =>
     n === null ? "—" : `${ccy && ccy !== "USD" ? ccy + " " : "$"}${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -125,7 +127,8 @@ function Card({ row, onChanged, onError }: {
     const [country, setCountry] = useState<string>(SUPPORTED_COUNTRIES[0]);
     const [note, setNote] = useState("");
     const [rejecting, setRejecting] = useState(false);
-    const [busy, setBusy] = useState<"save" | "accept" | "reject" | null>(null);
+    const [showDoc, setShowDoc] = useState(false);
+    const [busy, setBusy] = useState<"save" | "accept" | "reject" | "reopen" | null>(null);
 
     const v = row.match?.verdict ?? null;
     const dirty =
@@ -140,7 +143,7 @@ function Card({ row, onChanged, onError }: {
     // and saving re-runs the verdict; that is the deliberate path through.
     const blocked = v === "conflict" || v === "duplicate";
 
-    async function act(action: "save" | "accept" | "reject") {
+    async function act(action: "save" | "accept" | "reject" | "reopen") {
         setBusy(action); onError(null);
         try {
             const body: Record<string, unknown> = { action };
@@ -182,17 +185,29 @@ function Card({ row, onChanged, onError }: {
                     </span>
                 </div>
 
-                {/* The source document, one click away — checking the reading
-                    against the page is the job. */}
+                {/* The source document. Opening it in place is the default,
+                    because the job is comparing it with the fields below rather
+                    than reading it on its own — a new tab hides the thing you
+                    are comparing against. The download stays for the times you
+                    genuinely want the file. */}
                 {row.file_url && (
-                    <a
-                        href={row.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-[12px] text-[var(--accent)] hover:underline"
-                    >
-                        <Download size={13} /> {row.file_name} <ExternalLink size={11} />
-                    </a>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setShowDoc((v) => !v)}
+                            className="inline-flex items-center gap-1.5 text-[12px] text-[var(--accent)] hover:underline"
+                        >
+                            {showDoc ? <><EyeOff size={13} /> Hide invoice</> : <><Eye size={13} /> View invoice</>}
+                        </button>
+                        <a
+                            href={row.file_download_url ?? row.file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={row.file_name}
+                            className="inline-flex items-center gap-1.5 text-[12px] text-[var(--text-faint)] transition hover:text-[var(--text-dim)]"
+                        >
+                            <Download size={13} /> <ExternalLink size={11} />
+                        </a>
+                    </div>
                 )}
             </div>
 
@@ -205,6 +220,10 @@ function Card({ row, onChanged, onError }: {
                         </span>
                     )}
                 </p>
+            )}
+
+            {showDoc && row.file_url && (
+                <InvoiceViewer url={row.file_url} name={row.file_name} type={row.file_type} />
             )}
 
             {row.status === "pending" && (
@@ -284,6 +303,18 @@ function Card({ row, onChanged, onError }: {
                         {STATUS_COPY[row.status].label}
                     </span>
                     {row.review_note && <span className="text-[12px] text-[var(--text-dim)]">{row.review_note}</span>}
+
+                    {/* Reversible right up until a run claims it. After that it
+                        is money that has been queued, and undoing would let the
+                        same invoice be paid twice. */}
+                    {row.status === "accepted" && !row.payroll_run_id && (
+                        <Button size="sm" variant="ghost" onClick={() => act("reopen")} loading={busy === "reopen"}>
+                            <RotateCcw size={13} /> Undo accept
+                        </Button>
+                    )}
+                    {row.status === "accepted" && row.payroll_run_id && (
+                        <span className="text-[11px] text-[var(--text-faint)]">On a payroll run</span>
+                    )}
                 </div>
             )}
         </li>

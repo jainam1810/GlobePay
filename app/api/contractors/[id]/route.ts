@@ -63,7 +63,30 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
         if (authError) return authError;
 
         const { id } = await params;
-        const { error } = await getSupabase().from("contractors").delete().eq("id", id);
+        const supabase = getSupabase();
+
+        // Reopen anything this freelancer was accepted for but never paid.
+        //
+        // The invoice row survives the delete — contractor_id is set null — but
+        // it stays 'accepted', which leaves it pointing at nobody, unpayable,
+        // and still counting as a duplicate. The client would re-send the same
+        // invoice and be told it had already been accepted, with no way through.
+        // Runs already paid are left alone: that happened, and the record of it
+        // should not be rewritten because somebody left the roster.
+        const { error: reopenErr } = await supabase
+            .from("invoice_submissions")
+            .update({
+                status: "pending",
+                contractor_id: null,
+                review_note: "Reopened — the freelancer this was accepted for was removed from the roster.",
+                reviewed_at: null,
+            })
+            .eq("contractor_id", id)
+            .eq("status", "accepted")
+            .is("payroll_run_id", null);
+        if (reopenErr) console.error("[contractors] reopening invoices:", reopenErr.message);
+
+        const { error } = await supabase.from("contractors").delete().eq("id", id);
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
         return NextResponse.json({ ok: true });
     } catch (e) {
