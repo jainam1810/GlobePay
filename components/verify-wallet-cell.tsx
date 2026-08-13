@@ -35,13 +35,22 @@ export function VerifiedTick({ contractor }: { contractor: TrustInput }) {
     );
 }
 
-/** The action: mint a single-use link and put it on the clipboard. */
-export default function VerifyWalletCell({ contractor, onError }: {
+/**
+ * The action: mint a single-use link and put it on the clipboard.
+ *
+ * Which row is showing "Link copied" is owned by the list, not by each row.
+ * There is one clipboard, so only one link can be on it — with the flag held
+ * per row, copying a second while the first was still counting down left two
+ * rows both claiming to be the thing you were about to paste.
+ */
+export default function VerifyWalletCell({ contractor, onError, copiedId, onCopied }: {
     contractor: TrustInput & { id: string; name: string };
     onError?: (m: string) => void;
+    copiedId?: string | null;
+    onCopied?: (id: string | null) => void;
 }) {
     const [busy, setBusy] = useState(false);
-    const [copied, setCopied] = useState(false);
+    const copied = copiedId === contractor.id;
 
     if (walletTrust(contractor) === "verified") return null;
 
@@ -56,8 +65,7 @@ export default function VerifyWalletCell({ contractor, onError }: {
             const j = await r.json();
             if (!r.ok) throw new Error(j?.error || "Couldn't create a link");
             await navigator.clipboard.writeText(`${window.location.origin}/verify?token=${j.token}`);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 4000);
+            onCopied?.(contractor.id);
         } catch (e) {
             onError?.(e instanceof Error ? e.message : "Couldn't create a link");
         } finally {

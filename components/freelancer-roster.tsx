@@ -19,6 +19,8 @@ import Flag from "@/components/flag";
 export default function FreelancerRoster() {
     const [rows, setRows] = useState<DbContractor[] | null>(null);
     const [err, setErr] = useState<string | null>(null);
+    // One clipboard, so one row at a time can be the one that is on it.
+    const [copiedId, setCopiedId] = useState<string | null>(null);
 
     useEffect(() => {
         let live = true;
@@ -64,7 +66,12 @@ export default function FreelancerRoster() {
                                 <span className="font-mono">{truncate(c.wallet)}</span>
                             </div>
                         </div>
-                        <VerifyWalletCell contractor={c} onError={setErr} />
+                        <VerifyWalletCell
+                            contractor={c}
+                            onError={setErr}
+                            copiedId={copiedId}
+                            onCopied={setCopiedId}
+                        />
                     </li>
                 ))}
             </ul>

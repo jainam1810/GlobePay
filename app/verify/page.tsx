@@ -9,6 +9,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAccount, useConnect, useSignMessage } from "wagmi";
+import { pickable, connectorLabel } from "@/components/connect-button";
 import { AlertCircle, CheckCircle2, PenLine, ShieldCheck, Wallet } from "lucide-react";
 import { Logo } from "@/components/landing/nav";
 import { Button, Spinner } from "@/components/ui/kit";
@@ -32,7 +33,13 @@ export default function VerifyPage() {
 function Verify() {
     const token = useSearchParams()?.get("token") ?? "";
     const { address, isConnected } = useAccount();
-    const { connect, connectors } = useConnect();
+    const { connect, connectors, isPending } = useConnect();
+    // connectors[0] is the Safe connector — it is registered first and only
+    // works inside the Safe app's iframe, so in an ordinary browser this button
+    // fired a connection that could never resolve and looked like nothing
+    // happened. pickable() drops it and keeps the wallets that can actually
+    // answer, which is the same rule the header's Connect Wallet uses.
+    const usable = pickable(connectors);
     const { signMessageAsync } = useSignMessage();
 
     const [ask, setAsk] = useState<Ask | null>(null);
@@ -133,10 +140,28 @@ function Verify() {
 
                             <div className="mt-6">
                                 {!isConnected ? (
-                                    <Button size="lg" className="w-full"
-                                        onClick={() => connectors[0] && connect({ connector: connectors[0] })}>
-                                        <Wallet size={16} /> Connect your wallet
-                                    </Button>
+                                    <div className="space-y-2">
+                                        {usable.length === 0 ? (
+                                            <div className="rounded-xl border border-[var(--warn-line)] bg-[var(--warn-soft)] px-3.5 py-3 text-[13px] text-[var(--warn)]">
+                                                No wallet found in this browser. Install MetaMask, or open this link in
+                                                your wallet&rsquo;s own browser, and the button will appear.
+                                            </div>
+                                        ) : usable.length === 1 ? (
+                                            <Button size="lg" className="w-full" loading={isPending}
+                                                onClick={() => connect({ connector: usable[0] })}>
+                                                <Wallet size={16} /> Connect your wallet
+                                            </Button>
+                                        ) : (
+                                            // More than one extension announced itself, so name them
+                                            // rather than guessing which one they meant.
+                                            usable.map((c) => (
+                                                <Button key={c.uid} size="lg" variant="subtle" className="w-full"
+                                                    loading={isPending} onClick={() => connect({ connector: c })}>
+                                                    <Wallet size={16} /> Connect with {connectorLabel(c)}
+                                                </Button>
+                                            ))
+                                        )}
+                                    </div>
                                 ) : wrongWallet ? (
                                     <div className="rounded-xl border border-[var(--warn-line)] bg-[var(--warn-soft)] px-3.5 py-3 text-[13px] text-[var(--warn)]">
                                         You&rsquo;re connected as <span className="font-mono">{address?.slice(0, 10)}…</span>,
