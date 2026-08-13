@@ -26,6 +26,8 @@ export type InvoiceSubmission = {
     reviewed_at: string | null;
     /** Set once a run has claimed this invoice — after that it cannot be reopened. */
     payroll_run_id: string | null;
+    /** Every field GlobePay altered after it arrived, oldest first. */
+    corrections?: { field: string; label: string; from: string; to: string; at: string; by: string }[] | null;
     /** For displaying in place. Minted per request, short-lived, never stored. */
     file_url?: string | null;
     /** Same object with Content-Disposition: attachment, for the Save link. */
@@ -42,6 +44,14 @@ export type Matched = {
     contractorId: string | null;
     /** The roster figure, for comparison — never overwritten by an invoice. */
     rosterAmount: number | null;
+    /**
+     * The wallet already on file for whoever was matched.
+     *
+     * Offered only when the invoice's own wallet fails its checksum: an address
+     * the client already vetted beats one a model read off a page. Never offered
+     * against a *valid* address — that direction is the fraud vector.
+     */
+    rosterWallet?: string | null;
     /** One line explaining a verdict that isn't obvious. */
     reason: string;
 };
@@ -92,12 +102,12 @@ export function matchInvoice(
     if (byWallet) {
         if (n && norm(byWallet.name) !== n) {
             return {
-                verdict: "conflict", contractorId: byWallet.id, rosterAmount: byWallet.monthly_amount,
+                verdict: "conflict", contractorId: byWallet.id, rosterAmount: byWallet.monthly_amount, rosterWallet: byWallet.wallet,
                 reason: `That wallet is on file as ${byWallet.name}, not ${inv.payee_name}.`,
             };
         }
         return {
-            verdict: "match", contractorId: byWallet.id, rosterAmount: byWallet.monthly_amount,
+            verdict: "match", contractorId: byWallet.id, rosterAmount: byWallet.monthly_amount, rosterWallet: byWallet.wallet,
             reason: "",
         };
     }
@@ -105,7 +115,7 @@ export function matchInvoice(
     // Name on the roster, wallet we have never seen: the dangerous one.
     if (byName) {
         return {
-            verdict: "conflict", contractorId: byName.id, rosterAmount: byName.monthly_amount,
+            verdict: "conflict", contractorId: byName.id, rosterAmount: byName.monthly_amount, rosterWallet: byName.wallet,
             reason: `${byName.name} is on the roster with a different wallet. Confirm the change before paying.`,
         };
     }

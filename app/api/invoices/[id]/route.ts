@@ -20,9 +20,62 @@ import { matchInvoice } from "@/lib/invoice-submissions";
 
 const FIELDS =
     "id, created_at, client_id, file_name, file_type, file_size, extracted, payee_name, payee_wallet, " +
-    "amount, currency, invoice_number, invoice_date, description, status, review_note, contractor_id, reviewed_at, payroll_run_id";
+    "amount, currency, invoice_number, invoice_date, description, status, review_note, contractor_id, reviewed_at, payroll_run_id, corrections";
 
 const asDate = (s?: string | null) => (s && /^\d{4}-\d{2}-\d{2}$/.test(s.trim()) ? s.trim() : null);
+
+/** The fields a reviewer may correct, and what to call each one to a client. */
+const EDITABLE: Record<string, string> = {
+    payee_name: "Freelancer",
+    payee_wallet: "Wallet",
+    amount: "Amount",
+    currency: "Currency",
+    invoice_number: "Invoice number",
+    invoice_date: "Invoice date",
+    description: "Description",
+};
+
+/**
+ * Turn whatever fields were sent into a patch, plus a note of what changed.
+ *
+ * The note is the point. A model reads the invoice and a person corrects it, and
+ * without a record the client sees only the final figures — no way to tell that
+ * an amount or a wallet was altered after they sent it. On something that
+ * decides who gets paid what, that is theirs to see.
+ */
+function collectEdits(body: Record<string, unknown>, sub: Record<string, unknown>) {
+    const patch: Record<string, unknown> = {};
+    const changes: { field: string; label: string; from: string; to: string }[] = [];
+
+    for (const key of Object.keys(EDITABLE)) {
+        if (!(key in body)) continue;
+
+        let next: unknown;
+        if (key === "amount") {
+            const n = Number(body.amount);
+            next = n > 0 ? n : null;
+        } else if (key === "invoice_date") {
+            next = asDate(String(body.invoice_date ?? ""));
+        } else if (key === "currency") {
+            next = String(body.currency ?? "").trim().toUpperCase() || null;
+        } else {
+            next = String(body[key] ?? "").trim() || null;
+        }
+
+        const prev = sub[key] ?? null;
+        // Compared as text so 3 and "3" don't read as a change nobody made.
+        if (String(prev ?? "") === String(next ?? "")) continue;
+
+        patch[key] = next;
+        changes.push({
+            field: key,
+            label: EDITABLE[key],
+            from: prev === null || prev === "" ? "—" : String(prev),
+            to: next === null || next === "" ? "—" : String(next),
+        });
+    }
+    return { patch, changes };
+}
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -43,34 +96,52 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         if (!sub) return NextResponse.json({ error: "That invoice isn't here any more" }, { status: 404 });
 
         /* ── correct what the model read ─────────────────────────────────── */
-        if (action === "save") {
-            const patch: Record<string, unknown> = {};
-            if ("payee_name" in body) patch.payee_name = String(body.payee_name ?? "").trim() || null;
-            if ("payee_wallet" in body) {
-                const w = String(body.payee_wallet ?? "").trim();
-                if (w && !isAddress(w)) {
-                    return NextResponse.json({ error: "That is not a valid wallet address" }, { status: 400 });
-                }
-                patch.payee_wallet = w || null;
-            }
-            if ("amount" in body) {
-                const n = Number(body.amount);
-                if (body.amount !== null && body.amount !== "" && !(n > 0)) {
-                    return NextResponse.json({ error: "Amount must be a positive number" }, { status: 400 });
-                }
-                patch.amount = n > 0 ? n : null;
-            }
-            if ("currency" in body) patch.currency = String(body.currency ?? "").trim().toUpperCase() || null;
-            if ("invoice_number" in body) patch.invoice_number = String(body.invoice_number ?? "").trim() || null;
-            if ("invoice_date" in body) patch.invoice_date = asDate(String(body.invoice_date ?? ""));
-            if ("description" in body) patch.description = String(body.description ?? "").trim() || null;
+        // Captured out here: the closure below outlives the narrowing above.
+        const reviewer = s.email ?? "GlobePay";
 
-            if (!Object.keys(patch).length) {
-                return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+        // Shared by "save" and by "accept", so accepting an edited row saves the
+        // edits in the same step. Two buttons for one decision left Accept
+        // disabled with no clue that Save had to come first.
+        async function applyEdits() {
+            const { patch, changes } = collectEdits(body, sub);
+            if (!changes.length) return { ok: true as const, changed: false };
+
+            if (typeof patch.payee_wallet === "string" && !isAddress(patch.payee_wallet)) {
+                return {
+                    ok: false as const,
+                    res: NextResponse.json({
+                        error: "That wallet address doesn't pass its checksum — usually one misread character. Check it against the invoice.",
+                    }, { status: 400 }),
+                };
             }
-            const { data, error } = await supabase
-                .from("invoice_submissions").update(patch).eq("id", id).select(FIELDS).single();
-            if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+            if ("amount" in patch && !(Number(patch.amount) > 0)) {
+                return {
+                    ok: false as const,
+                    res: NextResponse.json({ error: "Amount must be a positive number" }, { status: 400 }),
+                };
+            }
+
+            const stamped = changes.map((c) => ({
+                ...c,
+                at: new Date().toISOString(),
+                by: reviewer,
+            }));
+            const { error } = await supabase.from("invoice_submissions")
+                .update({ ...patch, corrections: [...(sub.corrections ?? []), ...stamped] })
+                .eq("id", id);
+            if (error) {
+                return { ok: false as const, res: NextResponse.json({ error: error.message }, { status: 500 }) };
+            }
+            // Keep the in-memory copy in step — accept reads it straight after.
+            Object.assign(sub, patch);
+            return { ok: true as const, changed: true };
+        }
+
+        if (action === "save") {
+            const r = await applyEdits();
+            if (!r.ok) return r.res;
+            if (!r.changed) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+            const { data } = await supabase.from("invoice_submissions").select(FIELDS).eq("id", id).single();
             return NextResponse.json({ submission: data });
         }
 
@@ -114,11 +185,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
         /* ── accept ──────────────────────────────────────────────────────── */
         if (action === "accept") {
+            // Corrections travelling with the click are saved before the checks
+            // run, so the verdict is judged on what the reviewer can see.
+            const edited = await applyEdits();
+            if (!edited.ok) return edited.res;
+
             if (sub.status === "accepted") {
                 return NextResponse.json({ error: "That invoice is already accepted" }, { status: 409 });
             }
             if (!sub.payee_wallet || !isAddress(String(sub.payee_wallet))) {
-                return NextResponse.json({ error: "A valid wallet address is needed before this can be accepted" }, { status: 400 });
+                return NextResponse.json({
+                    error: "This wallet address doesn't pass its checksum, so a character was probably misread. Open the invoice, check it against the page, and correct it here.",
+                }, { status: 400 });
             }
             if (!sub.payee_name?.trim()) {
                 return NextResponse.json({ error: "A payee name is needed before this can be accepted" }, { status: 400 });

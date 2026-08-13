@@ -205,6 +205,24 @@ function Row({ r, onReplace }: { r: InvoiceSubmission; onReplace: (files: File[]
                 </p>
             )}
 
+            {/* What we altered after they sent it. Shown to the client because
+                they sent one set of figures and a different set may now be on
+                the payment — on something deciding who gets paid what, that is
+                theirs to see rather than ours to know. */}
+            {!!r.corrections?.length && (
+                <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-2">
+                    <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Corrected by GlobePay</div>
+                    <ul className="mt-1 space-y-0.5">
+                        {r.corrections.map((c, i) => (
+                            <li key={i} className="text-[12px] text-[var(--text-dim)]">
+                                {c.label}: <span className="text-[var(--text-faint)] line-through">{c.from}</span>{" "}
+                                <span className="text-[var(--text)]">{c.to}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+
             {/* Something to actually do about it. Being told an invoice needs
                 fixing and then having to scroll back up and guess which file to
                 drag is how the same wrong one gets sent twice. */}
