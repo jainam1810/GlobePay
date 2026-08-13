@@ -76,15 +76,13 @@ export default function Analytics({ scopeLabel }: { scopeLabel?: string }) {
             const k = dayOf(r).slice(0, 7);          // YYYY-MM
             m.set(k, (m.get(k) ?? 0) + Number(r.amount || 0));
         }
-        // The year is only on the label when it has to be. Filtered to a single
-        // year it is the same four digits on every column — noise that crowds
-        // the axis and makes months collide on a narrow screen. Across all time
-        // it is load-bearing, because otherwise two different Augusts read as
-        // one bar repeated.
-        const fmt = year === "__all__" ? "MMM yy" : "MMM";
+        // Month only. "May 26" on an axis reads as a date rather than a bucket,
+        // and the year is already a filter above the chart. Columns stay in
+        // chronological order, so across several years a repeated month is told
+        // apart by where it sits rather than by a suffix on every label.
         return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-            .map(([k, v]) => ({ key: k, label: format(parseISO(`${k}-01`), fmt), value: Math.round(v) }));
-    }, [rows, year]);
+            .map(([k, v]) => ({ key: k, label: format(parseISO(`${k}-01`), "MMM"), value: Math.round(v) }));
+    }, [rows]);
 
     // Top-N by total. Memoised on `rows` alone — the key functions are pure and
     // constant, so listing them as deps would just churn on every render.
