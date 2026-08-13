@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, History, LayoutDashboard, FileText, MessagesSquare, BarChart3, Settings } from "lucide-react";
+import { Building2, History, LayoutDashboard, FileText, FileUp, MessagesSquare, BarChart3, Settings } from "lucide-react";
 import AccountMenu from "@/components/account-menu";
 import AskWidget from "@/components/ask-widget";
 import CommandSearch from "@/components/command-search";
@@ -10,6 +10,7 @@ const nav = [
     { href: "/admin", label: "Overview", icon: LayoutDashboard },
     { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/admin/clients", label: "Clients", icon: Building2 },
+    { href: "/admin/invoices", label: "Invoices", icon: FileUp },
     { href: "/admin/payments", label: "All payments", icon: History },
     { href: "/admin/audit-pack", label: "Audit pack", icon: FileText },
     { href: "/admin/messages", label: "Messages", icon: MessagesSquare },

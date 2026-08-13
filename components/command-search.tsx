@@ -20,7 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import {
-    BarChart3, Building2, FileText, History, Home, LayoutDashboard,
+    BarChart3, Building2, FileText, FileUp, History, Home, LayoutDashboard,
     MessagesSquare, Receipt, Search, Settings, User, Wallet,
 } from "lucide-react";
 import Flag from "@/components/flag";
@@ -37,6 +37,7 @@ type Page = {
 const PORTAL_PAGES: Page[] = [
     { href: "/portal", label: "Home", icon: Home, keywords: "payroll dashboard start" },
     { href: "/portal/analytics", label: "Analytics", icon: BarChart3, keywords: "charts spend trends" },
+    { href: "/portal/invoices", label: "Invoices", icon: FileUp, keywords: "upload send bills documents" },
     { href: "/portal/payments", label: "Payments", icon: History, keywords: "history receipts paid transactions" },
     { href: "/portal/audit-pack", label: "Audit pack", icon: FileText, keywords: "records export pdf accountant invoices" },
     { href: "/portal/messages", label: "Messages", icon: MessagesSquare, keywords: "support contact chat" },
@@ -47,6 +48,7 @@ const ADMIN_PAGES: Page[] = [
     { href: "/admin", label: "Overview", icon: LayoutDashboard, keywords: "dashboard start" },
     { href: "/admin/analytics", label: "Analytics", icon: BarChart3, keywords: "charts spend trends" },
     { href: "/admin/clients", label: "Clients", icon: Building2, keywords: "companies accounts freelancers roster" },
+    { href: "/admin/invoices", label: "Invoices", icon: FileUp, keywords: "review queue submissions bills" },
     { href: "/admin/payments", label: "All payments", icon: History, keywords: "history receipts paid transactions" },
     { href: "/admin/audit-pack", label: "Audit pack", icon: FileText, keywords: "records export pdf invoices" },
     { href: "/admin/messages", label: "Messages", icon: MessagesSquare, keywords: "support chat" },

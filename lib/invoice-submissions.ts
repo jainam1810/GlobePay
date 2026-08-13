@@ -26,6 +26,8 @@ export type InvoiceSubmission = {
     reviewed_at: string | null;
     /** Minted per request, short-lived — never stored. */
     file_url?: string | null;
+    /** Computed server-side for reviewers; null for a client's own view. */
+    match?: Matched | null;
 };
 
 /** What the reviewer is being asked to decide about one row. */
