@@ -32,7 +32,7 @@ const LABELS: Record<string, { name: string; hint: string }> = {
  *     duplicate of a wallet already in the list, so it goes.
  *   · some extensions announce twice under different rdns; dedupe by name.
  */
-function pickable(connectors: readonly Connector[]) {
+export function pickable(connectors: readonly Connector[]) {
     // Inside the Safe App the safe connector auto-connects, so the picker never
     // shows there. Elsewhere it can't connect at all.
     const usable = connectors.filter((c) => c.type !== "safe");
@@ -46,7 +46,18 @@ function pickable(connectors: readonly Connector[]) {
             if (seen.has(key)) return false;
             seen.add(key);
             return true;
-        });
+        })
+        // Extensions first. An installed wallet announced itself to this page,
+        // which is a much stronger signal of intent than WalletConnect — that
+        // one is registered whether or not anybody has a Safe, and offering a QR
+        // code above the wallet somebody already has installed reads as the app
+        // not noticing it.
+        .sort((a, b) => Number(a.type !== "injected") - Number(b.type !== "injected"));
+}
+
+/** Plain-language name for a connector, shared by every picker. */
+export function connectorLabel(c: Connector) {
+    return LABELS[c.type]?.name ?? c.name;
 }
 
 export default function ConnectButton({ label = "Connect Wallet", onConnected }: {
