@@ -509,34 +509,49 @@ export function InvoiceAI() {
 
 /* ── 6. pricing ─────────────────────────────────────────────────────────── */
 
+// Two plans, not three. The research says three converts best, and it is right
+// for products where the tiers are genuinely different products — but here the
+// only real difference is whose money moves. Inventing a middle tier to hit the
+// pattern would mean inventing a feature to withhold, and withholding a feature
+// from a payroll tool is a strange thing to do on purpose.
+//
+// "Free" rather than "£0/month": zero is a price, and a price implies a
+// downgrade. What is actually on offer is the whole product with play money,
+// which is a sensible thing to do before trusting anyone with payroll.
+//
+// Everything in Free is in Pro. The paid plan is not a bigger version — it is
+// the same thing pointed at real money.
 const PLANS = [
     {
-        name: "Testnet",
-        price: "$0",
+        name: "Free",
+        price: "Free",
+        unit: "",
+        blurb: "The entire product, running on test money. No card, no limits, no expiry.",
+        features: [
+            "Every feature below, in full",
+            "Unlimited freelancers and payment runs",
+            "AI invoice reading and review queue",
+            "Audit pack, FX pinning, on-chain proof",
+            "Test USDC on Base Sepolia",
+        ],
+        cta: "Start testing",
+        href: "/login",
+    },
+    {
+        name: "Pro",
+        price: "£26.99",
         unit: "/month",
-        blurb: "The whole product on Base Sepolia. What the demo runs on.",
-        features: ["Unlimited freelancers", "Batch payment runs", "AI invoice extraction", "Audit pack export", "Testnet USDC"],
-        cta: "Open the app",
-        href: "/login",
-    },
-    {
-        name: "Mainnet",
-        price: "TBD",
-        unit: "",
-        blurb: "Real USDC on Base. Pricing not set — you pay chain gas either way.",
-        features: ["Everything in Testnet", "Mainnet USDC settlement", "Multi-client workspaces", "In-app messaging", "Priority support"],
-        cta: "Join the waitlist",
-        href: "/login",
+        blurb: "The same product, settling in real USDC on Base. One price, however many you pay.",
+        features: [
+            "Everything in Free, on mainnet",
+            "Real USDC, wallet to wallet",
+            "Unlimited freelancers and countries",
+            "Safe multisig payouts",
+            "Priority support",
+        ],
+        cta: "Go to mainnet",
+        href: "/contact",
         featured: true,
-    },
-    {
-        name: "Enterprise",
-        price: "Custom",
-        unit: "",
-        blurb: "For finance teams that need approvals and their own controls.",
-        features: ["Safe multisig payouts", "Role-based access", "Custom approval rules", "Data export + retention", "Dedicated onboarding"],
-        cta: "Talk to us",
-        href: "/login",
     },
 ];
 
@@ -547,11 +562,11 @@ export function Pricing() {
                 <Head
                     center
                     tag="Pricing"
-                    title={<>Infrastructure That<br />Grows With You</>}
-                    blurb="GlobePay is in testnet beta. Everything below is free to use today — mainnet pricing is not set, and this page will say so until it is."
+                    title={<>Try It All Free.<br />Pay When It&rsquo;s Real.</>}
+                    blurb="One flat price when you move real money — not per freelancer, not per payment, not a slice of what you send. Test everything first with play money for as long as you like."
                 />
 
-                <div className="mt-11 grid items-start gap-4 lg:grid-cols-3">
+                <div className="mx-auto mt-11 grid max-w-3xl items-start gap-4 sm:grid-cols-2">
                     {PLANS.map((p, i) => (
                         <Reveal key={p.name} index={i + 1}>
                             <div
@@ -562,7 +577,7 @@ export function Pricing() {
                             >
                                 {p.featured && (
                                     <span className="absolute right-5 top-5 rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] backdrop-blur-sm">
-                                        Next up
+                                        For real payroll
                                     </span>
                                 )}
 
@@ -840,6 +855,14 @@ const FAQ = [
     {
         q: "What if a wallet hasn't been verified yet?",
         a: "You can still pay it — it's a badge, not a barrier. But an unverified address only means it's correctly formed, not that anyone has proved it's theirs. Verified means the freelancer signed for that exact address, so if it's ever edited afterwards the badge drops and you'll see it before you pay.",
+    },
+    {
+        q: "What does it cost?",
+        a: "Free while you're on the test network — the whole product, no card, no expiry, paid with play money. When you're ready to move real money it's £26.99 a month, flat. Not per freelancer, not per payment, and not a percentage of what you send. The only other cost is the network fee for the transaction itself, which goes to the blockchain rather than to us — on Base that's typically a fraction of a penny.",
+    },
+    {
+        q: "Is the free version cut down?",
+        a: "No. It's the same product with test money instead of real money — every feature, no limits on freelancers or payment runs. That's deliberate: you shouldn't have to pay to find out whether a payroll tool works for you.",
     },
     {
         q: "Do you support USDC or USDT?",

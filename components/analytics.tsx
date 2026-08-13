@@ -76,9 +76,15 @@ export default function Analytics({ scopeLabel }: { scopeLabel?: string }) {
             const k = dayOf(r).slice(0, 7);          // YYYY-MM
             m.set(k, (m.get(k) ?? 0) + Number(r.amount || 0));
         }
+        // The year is only on the label when it has to be. Filtered to a single
+        // year it is the same four digits on every column — noise that crowds
+        // the axis and makes months collide on a narrow screen. Across all time
+        // it is load-bearing, because otherwise two different Augusts read as
+        // one bar repeated.
+        const fmt = year === "__all__" ? "MMM yy" : "MMM";
         return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-            .map(([k, v]) => ({ key: k, label: format(parseISO(`${k}-01`), "MMM yy"), value: Math.round(v) }));
-    }, [rows]);
+            .map(([k, v]) => ({ key: k, label: format(parseISO(`${k}-01`), fmt), value: Math.round(v) }));
+    }, [rows, year]);
 
     // Top-N by total. Memoised on `rows` alone — the key functions are pure and
     // constant, so listing them as deps would just churn on every render.
@@ -130,7 +136,7 @@ export default function Analytics({ scopeLabel }: { scopeLabel?: string }) {
             <div className="fade-up card p-3 flex items-center gap-2 flex-wrap">
                 <span className="text-[11px] uppercase tracking-wider text-[var(--text-faint)] mr-1">Showing</span>
                 <Select value={year} onChange={setYear} label="Year"
-                    options={[["__all__", "All time"], ...years.map((y) => [y, y] as [string, string])]} />
+                    options={[["__all__", "All years"], ...years.map((y) => [y, y] as [string, string])]} />
                 {clients.length > 1 && (
                     <Select value={client} onChange={setClient} label="Client"
                         options={[["__all__", "All clients"], ...clients.map((c) => [c, c] as [string, string])]} />
