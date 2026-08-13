@@ -30,7 +30,10 @@ export default async function AdminOverview() {
         <div className="mx-auto max-w-5xl">
             <div className="fade-up">
                 <div className="kicker">Operator console</div>
-                <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight mt-2">Everything, by client</h1>
+                <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight mt-2">Overview</h1>
+                <p className="mt-2 max-w-lg text-[var(--text-dim)]">
+                    Every client, what they&rsquo;ve paid, and what&rsquo;s waiting on them.
+                </p>
             </div>
 
             <div className="fade-up delay-1 grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
