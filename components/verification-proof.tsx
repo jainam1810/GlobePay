@@ -11,7 +11,7 @@
 // signed statement.
 import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Check, Copy, Loader2, ShieldCheck, TriangleAlert, X } from "lucide-react";
+import { Check, Copy, ExternalLink, Loader2, ShieldCheck, TriangleAlert, X } from "lucide-react";
 import type { VerificationProof } from "@/app/api/verify-wallet/proof/route";
 
 function CopyLine({ label, value, mono = true }: { label: string; value: string; mono?: boolean }) {
@@ -134,14 +134,31 @@ export default function VerificationProofDialog({ contractorId, open, onOpenChan
                                 </div>
                             </div>
 
-                            <CopyLine label="Wallet" value={proof.wallet} />
+                            <div>
+                                <CopyLine label="Wallet" value={proof.wallet} />
+                                {/* The wallet is on chain even though the signature is not.
+                                    Linking it lets a sceptic see a real address with real
+                                    history — including the USDC that has landed in it. */}
+                                <a
+                                    href={`https://sepolia.basescan.org/address/${proof.wallet}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-[var(--accent)] hover:underline"
+                                >
+                                    View this wallet on Basescan <ExternalLink size={10} />
+                                </a>
+                            </div>
                             {proof.message && <CopyLine label="What they signed" value={proof.message} mono={false} />}
                             {proof.signature && <CopyLine label="Signature" value={proof.signature} />}
 
+                            {/* Said plainly, because the obvious question after seeing a
+                                Basescan link is "why isn't the signature on there too". */}
                             <p className="text-[11px] leading-relaxed text-[var(--text-faint)]">
-                                Anyone can check this without us: recovering the signer from the message and
-                                signature should give the wallet above. Nothing here is secret — a signature
-                                proves who signed, and grants no permission to spend.
+                                The signature isn&rsquo;t a transaction, so it isn&rsquo;t on the blockchain — that is
+                                why signing was free and instant. It is checked mathematically instead:
+                                recovering the signer from the message and signature gives the wallet above,
+                                which anyone can do without us. The wallet itself is on chain, and its
+                                payments are public at the link above.
                             </p>
                         </div>
                     )}
