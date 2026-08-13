@@ -10,6 +10,7 @@ import { useState } from "react";
 import { Check, Loader2, ShieldCheck, ShieldQuestion } from "lucide-react";
 import { Tooltip } from "@/components/ui/overlays";
 import { walletTrust, type TrustInput } from "@/lib/wallet-verification";
+import VerificationProofDialog from "@/components/verification-proof";
 
 /**
  * A green tick beside the name, and nothing at all when unverified.
@@ -19,19 +20,27 @@ import { walletTrust, type TrustInput } from "@/lib/wallet-verification";
  * warnings, and a warning shown that often stops being read. The absence of a
  * tick is the signal; the tick is the reassurance.
  */
-export function VerifiedTick({ contractor }: { contractor: TrustInput }) {
+export function VerifiedTick({ contractor }: { contractor: TrustInput & { id?: string } }) {
+    const [open, setOpen] = useState(false);
     if (walletTrust(contractor) !== "verified") return null;
+
+    const id = contractor.id;
     return (
-        <Tooltip content="This freelancer signed with this wallet, so it's provably theirs.">
-            <span
-                tabIndex={0}
-                role="img"
-                aria-label="Wallet verified by the freelancer"
-                className="inline-flex shrink-0 cursor-help text-[var(--ok)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-            >
-                <ShieldCheck size={14} aria-hidden />
-            </span>
-        </Tooltip>
+        <>
+            <Tooltip content={id ? "Confirmed by the freelancer — click to see the proof." : "Confirmed by the freelancer."}>
+                <button
+                    type="button"
+                    onClick={() => id && setOpen(true)}
+                    aria-label={id ? "Wallet verified — see the proof" : "Wallet verified by the freelancer"}
+                    className={`inline-flex shrink-0 text-[var(--ok)] transition hover:brightness-125 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${id ? "cursor-pointer" : "cursor-help"}`}
+                >
+                    <ShieldCheck size={14} aria-hidden />
+                </button>
+            </Tooltip>
+            {/* Mounted only while open, so every opening re-checks rather than
+                showing what it found last time. */}
+            {id && open && <VerificationProofDialog contractorId={id} open onOpenChange={setOpen} />}
+        </>
     );
 }
 
