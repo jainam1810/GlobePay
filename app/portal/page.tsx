@@ -16,10 +16,21 @@ import WalletBadge from "@/components/wallet-badge";
 import type { DbContractor } from "@/lib/contractor-types";
 import type { DbClient, PayrollRun } from "@/lib/clients";
 
-// Testnet convention (as before): each recipient receives 1 test USDC on-chain;
-// real USD amounts are shown for the business record.
-const PER_PERSON = "1";
-const APPROVE_CAP = "1000";
+// One dollar is one USDC. The chain moves the invoiced amount, not a token
+// gesture — it used to send a flat 1 USDC per person and show the real figure
+// beside it, which made every demo need a footnote and hid the one number a
+// payer actually checks before signing.
+//
+// toFixed(2) before parseUnits on purpose: amounts arrive as JSON numbers, and
+// a total that has been through floating point can surface as 2500.0000000001,
+// which is not a quantity of money and would be rejected as 6-decimal units.
+const toUnits = (usd: number) => parseUnits(usd.toFixed(2), 6);
+
+// A one-time approval, so a run costs one signature rather than two. Capped
+// rather than infinite: an unlimited allowance is a standing invitation, and
+// this contract only ever needs enough for the runs in front of it. A run
+// larger than the cap approves exactly its own total instead.
+const APPROVE_CAP = "10000";
 
 export default function PortalHome() {
     const { address, isConnected, chainId, connector } = useAccount();
@@ -124,7 +135,7 @@ export default function PortalHome() {
                 spender: DISPERSE_ADDRESS,
                 sender: address,
                 recipients: run.line_items.map((li) => li.wallet),
-                amounts: run.line_items.map(() => parseUnits(PER_PERSON, 6)),
+                amounts: run.line_items.map((li) => toUnits(li.amount)),
             });
         } catch {
             // A pre-flight is a courtesy, not a gate. If the RPC won't answer,
@@ -161,12 +172,13 @@ export default function PortalHome() {
             const skip = new Set(skipWallets.map((w) => w.toLowerCase()));
             const lines = run.line_items.filter((li) => !skip.has(li.wallet.toLowerCase()));
             if (lines.length === 0) throw new Error("There's nobody left to pay in this run.");
-            const needed = parseUnits(String(lines.length * Number(PER_PERSON)), 6);
+            const needed = lines.reduce((sum, li) => sum + toUnits(li.amount), 0n);
             if (allowance === undefined || (allowance as bigint) < needed) {
                 setPhase("approving");
+                const cap = parseUnits(APPROVE_CAP, 6);
                 const approveHash = await writeContractAsync({
                     address: USDC_ADDRESS, abi: erc20Abi, functionName: "approve",
-                    args: [DISPERSE_ADDRESS, parseUnits(APPROVE_CAP, 6)],
+                    args: [DISPERSE_ADDRESS, needed > cap ? needed : cap],
                 });
                 if (viaSafe) {
                     // If the Safe still needs co-signers this never lands, and
@@ -185,7 +197,7 @@ export default function PortalHome() {
 
             setPhase("paying");
             const recipients = lines.map((li) => li.wallet as `0x${string}`);
-            const amounts = lines.map(() => parseUnits(PER_PERSON, 6));
+            const amounts = lines.map((li) => toUnits(li.amount));
             const hash = await writeContractAsync({
                 address: DISPERSE_ADDRESS, abi: disperseAbi, functionName: "disperseToken",
                 args: [USDC_ADDRESS, recipients, amounts],
@@ -315,7 +327,7 @@ export default function PortalHome() {
                         })}
                     </div>
                     {(() => {
-                        const neededUnits = BigInt(run.line_items.length) * 1_000_000n; // 1 test USDC per person
+                        const neededUnits = run.line_items.reduce((sum, li) => sum + toUnits(li.amount), 0n);
                         const insufficientUsdc = isConnected && usdcBalance !== undefined && (usdcBalance as bigint) < neededUnits;
                         return (
                             <>
@@ -344,7 +356,7 @@ export default function PortalHome() {
                                 )}
                                 {!wrongWallet && insufficientUsdc && (
                                     <PortalBanner warn>
-                                        The connected wallet doesn&rsquo;t hold enough test USDC to fund this payroll ({run.line_items.length} USDC needed on Base Sepolia).
+                                        The connected wallet doesn&rsquo;t hold enough test USDC to fund this payroll ({formatUSD(run.total_amount)} needed on Base Sepolia).
                                     </PortalBanner>
                                 )}
                             </>
