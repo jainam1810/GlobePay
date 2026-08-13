@@ -718,7 +718,7 @@ const ROADMAP = [
     {
         stage: "Next",
         title: "USDT alongside USDC",
-        body: "Some teams are already paid in USDT and would rather not switch. The payment contract accepts any standard token, so this is adding and testing rather than rebuilding.",
+        body: "Some freelancers already get paid in USDT and don't want to change. Our payment contract works with any standard token, so adding USDT is a matter of switching it on and testing it — not building something new.",
         icon: Layers,
     },
     {
