@@ -45,7 +45,7 @@ export async function POST(req: Request) {
         if (!s || s.role !== "globepay_admin") return NextResponse.json({ error: "GlobePay admin only" }, { status: 403 });
 
         const body = await req.json();
-        const { clientId, contractorIds, amounts, invoices, note } = body || {};
+        const { clientId, contractorIds, amounts, invoices, note, submissionIds } = body || {};
         if (!clientId) return NextResponse.json({ error: "clientId is required" }, { status: 400 });
         if (!Array.isArray(contractorIds) || contractorIds.length === 0) {
             return NextResponse.json({ error: "Select at least one freelancer to pay" }, { status: 400 });
@@ -96,6 +96,23 @@ export async function POST(req: Request) {
             prepared_by: s.userId,
         }).select().single();
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+        // Claim the invoices this run pays, so the same amount cannot be pulled
+        // into next month's run as well. Scoped to this client's accepted and
+        // still-unclaimed rows, so an id from somewhere else simply matches
+        // nothing rather than being taken at its word.
+        if (Array.isArray(submissionIds) && submissionIds.length) {
+            const { error: linkErr } = await supabase
+                .from("invoice_submissions")
+                .update({ payroll_run_id: data.id })
+                .in("id", submissionIds)
+                .eq("client_id", clientId)
+                .eq("status", "accepted")
+                .is("payroll_run_id", null);
+            // The run exists and is the thing that matters; a failed link is
+            // logged rather than thrown, and shows up as an invoice still owed.
+            if (linkErr) console.error("[payroll-runs] linking invoices:", linkErr.message);
+        }
 
         // Tell the client their payroll is waiting (no-op without RESEND_API_KEY).
         const { data: client } = await supabase.from("clients").select("*").eq("id", clientId).single();

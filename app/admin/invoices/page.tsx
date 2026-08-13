@@ -1,5 +1,6 @@
 "use client";
 import InvoiceQueue from "@/components/invoice-queue";
+import ReadyToPay from "@/components/ready-to-pay";
 
 export default function AdminInvoicesPage() {
     return (
@@ -11,6 +12,11 @@ export default function AdminInvoicesPage() {
                     Everything clients have sent, already read. Check each against the document, correct
                     anything the AI got wrong, and accept — nothing is paid until a run is confirmed.
                 </p>
+            </div>
+            {/* Above the queue: what has already been checked and is waiting to
+                be turned into a run. Nothing to show until something is accepted. */}
+            <div className="fade-up delay-1 mb-6">
+                <ReadyToPay />
             </div>
             <div className="fade-up delay-1">
                 <InvoiceQueue />
