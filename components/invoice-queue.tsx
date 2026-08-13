@@ -14,6 +14,7 @@ import {
     CheckCircle2, Clock, Download, ExternalLink, Eye, EyeOff, FileText,
     RotateCcw, TriangleAlert, UserPlus, X,
 } from "lucide-react";
+import { isAddress } from "viem";
 import { STATUS_COPY, type InvoiceSubmission, type Verdict } from "@/lib/invoice-submissions";
 import { SUPPORTED_COUNTRIES } from "@/lib/contractor-types";
 import { Button, SkeletonRows, Empty } from "@/components/ui/kit";
@@ -143,11 +144,23 @@ function Card({ row, onChanged, onError }: {
     // and saving re-runs the verdict; that is the deliberate path through.
     const blocked = v === "conflict" || v === "duplicate";
 
+    // A 42-character address read off a page will occasionally lose a
+    // character, and the checksum catches it every time — but retyping all 42
+    // to fix two is a poor answer. When the roster already holds an address for
+    // this person, offer it: the client vetted that one.
+    const onFile = row.match?.rosterWallet ?? null;
+    const walletBroken = !!f.payee_wallet.trim() && !isAddress(f.payee_wallet.trim());
+    const canUseOnFile = walletBroken && !!onFile && onFile.toLowerCase() !== f.payee_wallet.trim().toLowerCase();
+
     async function act(action: "save" | "accept" | "reject" | "reopen") {
         setBusy(action); onError(null);
         try {
             const body: Record<string, unknown> = { action };
-            if (action === "save") Object.assign(body, f, { amount: f.amount === "" ? null : Number(f.amount) });
+            // Accept carries the fields too, so accepting an edited row saves
+            // the edits in the same step rather than needing Save first.
+            if (action === "save" || action === "accept") {
+                Object.assign(body, f, { amount: f.amount === "" ? null : Number(f.amount) });
+            }
             if (action === "accept" && v === "new") body.country = country;
             if (action === "reject") body.note = note;
 
@@ -233,7 +246,27 @@ function Card({ row, onChanged, onError }: {
                             <input className={input} value={f.payee_name} onChange={(e) => setF({ ...f, payee_name: e.target.value })} />
                         </label>
                         <label className="lg:col-span-2"><span className={label}>Wallet</span>
-                            <input className={`${input} font-mono`} value={f.payee_wallet} onChange={(e) => setF({ ...f, payee_wallet: e.target.value })} placeholder="0x…" />
+                            <input
+                                className={`${input} font-mono ${walletBroken ? "border-[var(--danger-line)]" : ""}`}
+                                value={f.payee_wallet}
+                                onChange={(e) => setF({ ...f, payee_wallet: e.target.value })}
+                                placeholder="0x…"
+                            />
+                            {walletBroken && (
+                                <span className="mt-1 block text-[11px] text-[var(--danger)]">
+                                    Fails its checksum — a character was probably misread. Check it against the invoice.
+                                </span>
+                            )}
+                            {canUseOnFile && (
+                                <button
+                                    type="button"
+                                    onClick={() => setF({ ...f, payee_wallet: onFile })}
+                                    className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-strong)] px-2 py-1 text-[11px] text-[var(--text-dim)] transition hover:border-[var(--accent-line)] hover:text-[var(--accent)]"
+                                >
+                                    Use the wallet on file
+                                    <span className="font-mono">{onFile.slice(0, 6)}…{onFile.slice(-4)}</span>
+                                </button>
+                            )}
                         </label>
                         <label><span className={label}>Amount</span>
                             <input className={input} inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} />
@@ -259,22 +292,19 @@ function Card({ row, onChanged, onError }: {
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center gap-2">
-                        <Button size="sm" onClick={() => act("accept")} loading={busy === "accept"} disabled={blocked || dirty}>
+                        <Button size="sm" onClick={() => act("accept")} loading={busy === "accept"} disabled={blocked}>
                             {v === "new" ? <><UserPlus size={14} /> Add &amp; accept</> : <><CheckCircle2 size={14} /> Accept</>}
                         </Button>
+                        {/* Only for saving without deciding yet. Accepting saves
+                            too, so this is never a step you must remember. */}
                         {dirty && (
                             <Button size="sm" variant="subtle" onClick={() => act("save")} loading={busy === "save"}>
-                                Save corrections
+                                Save changes
                             </Button>
                         )}
                         <Button size="sm" variant="ghost" onClick={() => setRejecting((x) => !x)}>
                             {rejecting ? <><X size={14} /> Cancel</> : "Send back"}
                         </Button>
-                        {dirty && (
-                            <span className="text-[11px] text-[var(--text-faint)]">
-                                Save first — the check re-runs on what you saved.
-                            </span>
-                        )}
                     </div>
 
                     {rejecting && (
