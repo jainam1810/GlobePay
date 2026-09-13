@@ -4,7 +4,7 @@
 
 export type PaymentRecipient = {
     wallet: string;
-    amount: number;          // USDC actually moved on-chain (testnet: a flat 1)
+    amount: number;          // USDC actually moved on-chain — one dollar is one USDC
     name: string | null;     // contractor name at time of ingest (snapshot)
     country: string | null;
     // Real USD this person was owed, from the payroll run behind this tx.
